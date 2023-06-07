@@ -134,9 +134,9 @@ export class ECPointFp {
   }
 
   /**
-   * 相加
+   * addition
    *
-   * 标准射影坐标系：
+   * standard Jacobian Projective Co-ordinates
    *
    * λ1 = x1 * z2
    * λ2 = x2 * z1
@@ -174,9 +174,9 @@ export class ECPointFp {
 
     if (BigInteger.ZERO.equals(w3)) {
       if (BigInteger.ZERO.equals(w6)) {
-        return this.twice() // this == b，计算自加
+        return this.twice() // this == b, return twice
       }
-      return this.curve.infinity // this == -b，则返回无穷远点
+      return this.curve.infinity // this == -b, return infinity
     }
 
     const w7 = w1.add(w2)
@@ -192,21 +192,6 @@ export class ECPointFp {
     return new ECPointFp(this.curve, this.curve.fromBigInteger(x3), this.curve.fromBigInteger(y3), z3)
   }
 
-  /**
-   * 自加
-   *
-   * 标准射影坐标系：
-   *
-   * λ1 = 3 * x1^2 + a * z1^2
-   * λ2 = 2 * y1 * z1
-   * λ3 = y1^2
-   * λ4 = λ3 * x1 * z1
-   * λ5 = λ2^2
-   * λ6 = λ1^2 − 8 * λ4
-   * x3 = λ2 * λ6
-   * y3 = λ1 * (4 * λ4 − λ6) − 2 * λ5 * λ3
-   * z3 = λ2 * λ5
-   */
   twice() {
     if (this.isInfinity()) return this
     if (!this.y!.toBigInteger().signum()) return this.curve.infinity
@@ -217,9 +202,12 @@ export class ECPointFp {
     const q = this.curve.q
     const a = this.curve.a.toBigInteger()
 
-    const w1 = x1.square().multiply(THREE).add(a.multiply(z1.square())).mod(q)
+    const x1Squared = x1.square()
+    const y1Squared = y1.square()
+    const z1Squared = z1.square()
+    const w1 = x1Squared.multiply(THREE).add(a.multiply(z1Squared)).mod(q)
     const w2 = y1.shiftLeft(1).multiply(z1).mod(q)
-    const w3 = y1.square().mod(q)
+    const w3 = y1Squared.mod(q)
     const w4 = w3.multiply(x1).multiply(z1).mod(q)
     const w5 = w2.square().mod(q)
     const w6 = w1.square().subtract(w4.shiftLeft(3)).mod(q)
@@ -234,6 +222,7 @@ export class ECPointFp {
   /**
    * 倍点计算
    */
+  
   multiply(k: BigInteger) {
     if (this.isInfinity()) return this
     if (!k.signum()) return this.curve.infinity

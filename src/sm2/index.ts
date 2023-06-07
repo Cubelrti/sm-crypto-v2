@@ -1,10 +1,13 @@
 /* eslint-disable no-use-before-define */
 import { BigInteger } from 'jsbn'
 import { encodeDer, decodeDer } from './asn1'
-import { arrayToHex, arrayToUtf8, concatArray, generateEcparam, generateKeyPairHex, getGlobalCurve, hexToArray, leftPad, utf8ToHex } from './utils'
+import { arrayToHex, arrayToUtf8, concatArray, generateEcparam, generateKeyPairHex, hexToArray, leftPad, sm2Curve, utf8ToHex } from './utils'
 import { sm3 } from './sm3'
 export * from './utils'
-const { G, curve, n } = generateEcparam()
+import * as mod from '@noble/curves/abstract/modular';
+import * as utils from '@noble/curves/abstract/utils';
+
+// const { G, curve, n } = generateEcparam()
 const C1C2C3 = 0
 
 /**
@@ -13,19 +16,21 @@ const C1C2C3 = 0
 export function doEncrypt(msg: string | Uint8Array, publicKey: string, cipherMode = 1) {
 
   const msgArr = typeof msg === 'string' ? hexToArray(utf8ToHex(msg)) : Uint8Array.from(msg)
-  const publicKeyPoint = getGlobalCurve().decodePointHex(publicKey) // 先将公钥转成点
+  const publicKeyPoint = sm2Curve.ProjectivePoint.fromHex(publicKey)
+  // const publicKeyPoint = getGlobalCurve().decodePointHex(publicKey) // 先将公钥转成点
 
   const keypair = generateKeyPairHex()
-  const k = new BigInteger(keypair.privateKey, 16) // 随机数 k
+  const k = utils.hexToNumber(keypair.privateKey)
+  // const k = new BigInteger(keypair.privateKey, 16) // 随机数 k
 
   // c1 = k * G
   let c1 = keypair.publicKey
   if (c1.length > 128) c1 = c1.substring(c1.length - 128)
-
-  // (x2, y2) = k * publicKey
   const p = publicKeyPoint!.multiply(k)
-  const x2 = hexToArray(leftPad(p.getX().toBigInteger().toRadix(16), 64))
-  const y2 = hexToArray(leftPad(p.getY().toBigInteger().toRadix(16), 64))
+  
+  // (x2, y2) = k * publicKey
+  const x2 = hexToArray(leftPad(utils.numberToHexUnpadded(p.x), 64))
+  const y2 = hexToArray(leftPad(utils.numberToHexUnpadded(p.y), 64))
 
   // c3 = hash(x2 || msg || y2)
   const c3 = arrayToHex(Array.from(sm3(concatArray(x2, msgArr, y2))));
@@ -67,7 +72,8 @@ export function doDecrypt(encryptData: string, privateKey: string, cipherMode?: 
 export function doDecrypt(encryptData: string, privateKey: string, cipherMode = 1, {
   output = 'string',
 } = {}) {
-  const privateKeyInteger = new BigInteger(privateKey, 16)
+  // const privateKeyInteger = new BigInteger(privateKey, 16)
+  const privateKeyInteger = utils.hexToNumber(privateKey)
 
   let c3 = encryptData.substring(128, 128 + 64)
   let c2 = encryptData.substring(128 + 64)
@@ -78,11 +84,14 @@ export function doDecrypt(encryptData: string, privateKey: string, cipherMode = 
   }
 
   const msg = hexToArray(c2)
-  const c1 = getGlobalCurve().decodePointHex('04' + encryptData.substring(0, 128))!
+  // const c1 = getGlobalCurve().decodePointHex('04' + encryptData.substring(0, 128))!
+  const c1 = sm2Curve.ProjectivePoint.fromHex('04' + encryptData.substring(0, 128))!
 
   const p = c1.multiply(privateKeyInteger)
-  const x2 = hexToArray(leftPad(p.getX().toBigInteger().toRadix(16), 64))
-  const y2 = hexToArray(leftPad(p.getY().toBigInteger().toRadix(16), 64))
+  // const x2 = hexToArray(leftPad(p.getX().toBigInteger().toRadix(16), 64))
+  // const y2 = hexToArray(leftPad(p.getY().toBigInteger().toRadix(16), 64))
+  const x2 = hexToArray(leftPad(utils.numberToHexUnpadded(p.x), 64))
+  const y2 = hexToArray(leftPad(utils.numberToHexUnpadded(p.y), 64))
   let ct = 1
   let offset = 0
   let t = new Uint8Array() // 256 位
@@ -114,8 +123,8 @@ export function doDecrypt(encryptData: string, privateKey: string, cipherMode = 
 }
 
 export interface SignaturePoint {
-  k: BigInteger
-  x1: BigInteger
+  k: bigint
+  x1: bigint
 }
 
 /**
@@ -135,13 +144,13 @@ export function doSignature(msg: Uint8Array | string, privateKey: string, option
     hashHex = getHash(hashHex, publicKey, userId)
   }
 
-  const dA = new BigInteger(privateKey, 16)
-  const e = new BigInteger(hashHex, 16)
+  const dA = utils.hexToNumber(privateKey)
+  const e = utils.hexToNumber(hashHex)
 
   // k
-  let k: BigInteger | null = null
-  let r: BigInteger | null = null
-  let s: BigInteger | null = null
+  let k: bigint | null = null
+  let r: bigint | null = null
+  let s: bigint | null = null
 
   do {
     do {
@@ -154,16 +163,16 @@ export function doSignature(msg: Uint8Array | string, privateKey: string, option
       k = point.k
 
       // r = (e + x1) mod n
-      r = e.add(point.x1).mod(n)
-    } while (r.equals(BigInteger.ZERO) || r.add(k).equals(n))
+      // r = e.add(point.x1).mod(n)
+      r = mod.mod(e + point.x1, sm2Curve.CURVE.n)
+    } while (r === 0n || (r + k) === sm2Curve.CURVE.n)
 
     // s = ((1 + dA)^-1 * (k - r * dA)) mod n
-    s = dA.add(BigInteger.ONE).modInverse(n).multiply(k.subtract(r.multiply(dA))).mod(n)
-  } while (s.equals(BigInteger.ZERO))
-
+    // s = dA.add(BigInteger.ONE).modInverse(n).multiply(k.subtract(r.multiply(dA))).mod(n)
+    s = mod.mod(mod.invert(dA + 1n, sm2Curve.CURVE.n) * (k - r * dA), sm2Curve.CURVE.n)
+  } while (s === 0n)
   if (der) return encodeDer(r, s) // asn.1 der 编码
-
-  return leftPad(r.toString(16), 64) + leftPad(s.toString(16), 64)
+  return leftPad(utils.numberToHexUnpadded(r), 64) + leftPad(utils.numberToHexUnpadded(s), 64)
 }
 
 /**
@@ -183,32 +192,40 @@ export function doVerifySignature(msg: string | Uint8Array, signHex: string, pub
     hashHex = typeof msg === 'string' ? utf8ToHex(msg) : arrayToHex(Array.from(msg))
   }
 
-  let r: BigInteger;
-  let s: BigInteger;
+  let r: bigint;
+  let s: bigint;
   if (der) {
     const decodeDerObj = decodeDer(signHex) // asn.1 der 解码
     r = decodeDerObj.r
     s = decodeDerObj.s
   } else {
-    r = new BigInteger(signHex.substring(0, 64), 16)
-    s = new BigInteger(signHex.substring(64), 16)
+    // r = new BigInteger(signHex.substring(0, 64), 16)
+    // s = new BigInteger(signHex.substring(64), 16)
+    r = utils.hexToNumber(signHex.substring(0, 64))
+    s = utils.hexToNumber(signHex.substring(64))
   }
-
-  const PA = curve.decodePointHex(publicKey)!
-  const e = new BigInteger(hashHex, 16)
-
+  
+  // const PA = curve.decodePointHex(publicKey)!
+  const PA = sm2Curve.ProjectivePoint.fromHex(publicKey)!
+  // const e = new BigInteger(hashHex, 16)
+  const e = utils.hexToNumber(hashHex)
+  
   // t = (r + s) mod n
-  const t = r.add(s).mod(n)
+  // const t = r.add(s).mod(n)
+  const t = mod.mod(r + s, sm2Curve.CURVE.n)
 
-  if (t.equals(BigInteger.ZERO)) return false
+  if (t === 0n) return false
 
   // x1y1 = s * G + t * PA
-  const x1y1 = G.multiply(s).add(PA.multiply(t))
+  // const x1y1 = G.multiply(s).add(PA.multiply(t))
+  const x1y1 = sm2Curve.ProjectivePoint.BASE.multiply(s).add(PA.multiply(t))
 
   // R = (e + x1) mod n
-  const R = e.add(x1y1.getX().toBigInteger()).mod(n)
+  // const R = e.add(x1y1.getX().toBigInteger()).mod(n)
+  const R = mod.mod(e + x1y1.x, sm2Curve.CURVE.n)
 
-  return r.equals(R)
+  // return r.equals(R)
+  return r === R
 }
 
 /**
@@ -217,19 +234,25 @@ export function doVerifySignature(msg: string | Uint8Array, signHex: string, pub
 export function getHash(hashHex: string | Uint8Array, publicKey: string, userId = '1234567812345678') {
   // z = hash(entl || userId || a || b || gx || gy || px || py)
   userId = utf8ToHex(userId)
-  const a = leftPad(G.curve.a.toBigInteger().toRadix(16), 64)
-  const b = leftPad(G.curve.b.toBigInteger().toRadix(16), 64)
-  const gx = leftPad(G.getX().toBigInteger().toRadix(16), 64)
-  const gy = leftPad(G.getY().toBigInteger().toRadix(16), 64)
+  const a = leftPad(utils.numberToHexUnpadded(sm2Curve.CURVE.a), 64)
+  // const b = leftPad(G.curve.b.toBigInteger().toRadix(16), 64)
+  const b = leftPad(utils.numberToHexUnpadded(sm2Curve.CURVE.b), 64)
+  // const gx = leftPad(G.getX().toBigInteger().toRadix(16), 64)
+  const gx = leftPad(utils.numberToHexUnpadded(sm2Curve.ProjectivePoint.BASE.x), 64)
+  // const gy = leftPad(G.getY().toBigInteger().toRadix(16), 64)
+  const gy = leftPad(utils.numberToHexUnpadded(sm2Curve.ProjectivePoint.BASE.y), 64)
   let px: string
   let py: string
   if (publicKey.length === 128) {
     px = publicKey.substring(0, 64)
     py = publicKey.substring(64, 128)
   } else {
-    const point = G.curve.decodePointHex(publicKey)!
-    px = leftPad(point.getX().toBigInteger().toRadix(16), 64)
-    py = leftPad(point.getY().toBigInteger().toRadix(16), 64)
+    // const point = G.curve.decodePointHex(publicKey)!
+    const point = sm2Curve.ProjectivePoint.fromHex(publicKey)!
+    // px = leftPad(point.getX().toBigInteger().toRadix(16), 64)
+    px = leftPad(utils.numberToHexUnpadded(point.x), 64)
+    // py = leftPad(point.getY().toBigInteger().toRadix(16), 64)
+    py = leftPad(utils.numberToHexUnpadded(point.y), 64)
   }
   const data = hexToArray(userId + a + b + gx + gy + px + py)
 
@@ -245,10 +268,13 @@ export function getHash(hashHex: string | Uint8Array, publicKey: string, userId 
  * 计算公钥
  */
 export function getPublicKeyFromPrivateKey(privateKey: string) {
-  const PA = G.multiply(new BigInteger(privateKey, 16))
-  const x = leftPad(PA.getX().toBigInteger().toString(16), 64)
-  const y = leftPad(PA.getY().toBigInteger().toString(16), 64)
-  return '04' + x + y
+  const pubKey = sm2Curve.getPublicKey(privateKey, false)
+  const pubPad = leftPad(utils.bytesToHex(pubKey), 64)
+  return pubPad
+  // const PA = G.multiply(new BigInteger(privateKey, 16))
+  // const x = leftPad(PA.getX().toBigInteger().toString(16), 64)
+  // const y = leftPad(PA.getY().toBigInteger().toString(16), 64)
+  // return '04' + x + y
 }
 
 /**
@@ -256,12 +282,14 @@ export function getPublicKeyFromPrivateKey(privateKey: string) {
  */
 export function getPoint() {
   const keypair = generateKeyPairHex()
-  const PA = curve.decodePointHex(keypair.publicKey)
+  // const PA = curve.decodePointHex(keypair.publicKey)
+  const PA = sm2Curve.ProjectivePoint.fromHex(keypair.publicKey)
+  const k = utils.hexToNumber(keypair.privateKey)
 
   return {
     ...keypair,
-    k: new BigInteger(keypair.privateKey, 16),
-    x1: PA!.getX().toBigInteger()
+    k,
+    x1: PA!.x,
   }
 }
 

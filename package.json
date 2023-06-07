@@ -30,6 +30,7 @@
   "author": "june_01",
   "license": "MIT",
   "dependencies": {
+    "@noble/curves": "^1.1.0",
     "@types/jsbn": "^1.2.30",
     "jsbn": "^1.1.0"
   },

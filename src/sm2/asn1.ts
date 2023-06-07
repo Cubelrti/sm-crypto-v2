@@ -1,8 +1,9 @@
 /* eslint-disable class-methods-use-this */
 
 import { BigInteger } from 'jsbn'
+import * as utils from '@noble/curves/abstract/utils';
 
-export function bigintToValue(bigint: BigInteger) {
+export function bigintToValue(bigint: bigint) {
   let h = bigint.toString(16)
   if (h[0] !== '-') {
     // 正数
@@ -10,18 +11,18 @@ export function bigintToValue(bigint: BigInteger) {
     else if (!h.match(/^[0-7]/)) h = '00' + h // 非0开头，则补一个全0字节
   } else {
     // 负数
-    h = h.substr(1)
-
+    h = h.substring(1)
     let len = h.length
     if (len % 2 === 1) len += 1 // 补齐到整字节
     else if (!h.match(/^[0-7]/)) len += 2 // 非0开头，则补一个全0字节
 
     let maskString = ''
     for (let i = 0; i < len; i++) maskString += 'f'
-    let mask = new BigInteger(maskString, 16)
+    let mask = utils.hexToNumber(maskString)
 
     // 对绝对值取反，加1
-    let output = mask.xor(bigint).add(BigInteger.ONE)
+    
+    let output = (mask ^ bigint) + 1n
     h = output.toString(16).replace(/^-/, '')
   }
   return h
@@ -68,7 +69,7 @@ class ASN1Object {
 }
 
 class DERInteger extends ASN1Object {
-  constructor(bigint: BigInteger) {
+  constructor(bigint: bigint) {
     super()
 
     this.t = '02' // 整型标签说明
@@ -125,7 +126,7 @@ function getStartOfV(str: string, start: number) {
 /**
  * ASN.1 der 编码，针对 sm2 签名
  */
-export function encodeDer(r: BigInteger, s: BigInteger) {
+export function encodeDer(r: bigint, s: bigint) {
   const derR = new DERInteger(r)
   const derS = new DERInteger(s)
   const derSeq = new DERSequence([derR, derS])
@@ -151,8 +152,10 @@ export function decodeDer(input: string) {
   const lS = getL(input, nextStart)
   const vS = input.substring(vIndexS, vIndexS + lS * 2)
 
-  const r = new BigInteger(vR, 16)
-  const s = new BigInteger(vS, 16)
+  // const r = new BigInteger(vR, 16)
+  // const s = new BigInteger(vS, 16)
+  const r = utils.hexToNumber(vR)
+  const s = utils.hexToNumber(vS)
 
   return { r, s }
 }

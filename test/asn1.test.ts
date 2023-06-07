@@ -4,17 +4,17 @@ import { BigInteger } from 'jsbn'
 
 describe('bigintToValue', () => {
     it('should convert a BigInt to a string', () => {
-      const input = new BigInteger('12345678901234567890')
+      const input = 12345678901234567890n
       expect(bigintToValue(input)).toEqual('00ab54a98ceb1f0ad2')
     })
   
     it('should handle zero', () => {
-      const input = new BigInteger('0')
+      const input = 0n
       expect(bigintToValue(input)).toEqual('00')
     })
   
     it('should handle negative numbers', () => {
-      const input = new BigInteger('-12345678901234567890')
+      const input = -12345678901234567890n
       expect(bigintToValue(input)).toEqual('ff54ab567314e0f52e')
     })
   })
