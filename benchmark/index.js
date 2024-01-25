@@ -5,7 +5,6 @@ import * as smV2 from '../dist/index.js'
 const msg = 'Hello world~!'
 const longMsg = msg.repeat(10000)
 const keypair = smV2.sm2.generateKeyPairHex('12345678901234567890')
-
 run(async () => {
   await smV2.sm2.initRNGPool()
   const sig = smV2.sm2.doSignature(msg, keypair.privateKey, { publicKey: keypair.publicKey})

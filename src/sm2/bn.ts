@@ -1,6 +1,6 @@
-import JSBI from 'jsbi';
+import bigInt from 'big-integer';
 
-export const ZERO = JSBI.BigInt(0);
-export const ONE = JSBI.BigInt(1);
-export const TWO = JSBI.BigInt(2);
-export const THREE = JSBI.BigInt(3);
+export const ZERO = bigInt(0);
+export const ONE = bigInt(1);
+export const TWO = bigInt(2);
+export const THREE = bigInt(3);

@@ -3,14 +3,14 @@
 // This is OK: `abstract` directory does not use noble-hashes.
 // User may opt-in into using different hashing library. This way, noble-hashes
 // won't be included into their bundle.
-import JSBI from 'jsbi';
 import { ZERO, ONE } from '../bn';
+import bigInt, { BigInteger } from 'big-integer';
 
-const _0n = JSBI.BigInt(0);
-const _1n = JSBI.BigInt(1);
-const _2n = JSBI.BigInt(2);
+const _0n = bigInt(0);
+const _1n = bigInt(1);
+const _2n = bigInt(2);
 export type Hex = Uint8Array | string; // hex strings are accepted for simplicity
-export type PrivKey = Hex | JSBI; // bigints are accepted to ease learning curve
+export type PrivKey = Hex | BigInteger; // bigints are accepted to ease learning curve
 export type CHash = {
   (message: Uint8Array | string): Uint8Array;
   blockLen: number;
@@ -43,15 +43,15 @@ export function bytesToHex(bytes: Uint8Array): string {
   return hex;
 }
 
-export function numberToHexUnpadded(num: number | JSBI): string {
+export function numberToHexUnpadded(num: number | BigInteger): string {
   const hex = num.toString(16);
   return hex.length & 1 ? `0${hex}` : hex;
 }
 
-export function hexToNumber(hex: string): JSBI {
+export function hexToNumber(hex: string): BigInteger {
   if (typeof hex !== 'string') throw new Error('hex string expected, got ' + typeof hex);
   // Big Endian
-  return JSBI.BigInt(hex === '' ? '0' : `0x${hex}`);
+  return bigInt(hex === '' ? '0' : hex, 16);
 }
 
 // We use optimized technique to convert hex string to byte array
@@ -85,22 +85,22 @@ export function hexToBytes(hex: string): Uint8Array {
 }
 
 // BE: Big Endian, LE: Little Endian
-export function bytesToNumberBE(bytes: Uint8Array): JSBI {
+export function bytesToNumberBE(bytes: Uint8Array): BigInteger {
   return hexToNumber(bytesToHex(bytes));
 }
-export function bytesToNumberLE(bytes: Uint8Array): JSBI {
+export function bytesToNumberLE(bytes: Uint8Array): BigInteger {
   if (!isBytes(bytes)) throw new Error('Uint8Array expected');
   return hexToNumber(bytesToHex(Uint8Array.from(bytes).reverse()));
 }
 
-export function numberToBytesBE(n: number | JSBI, len: number): Uint8Array {
+export function numberToBytesBE(n: number | BigInteger, len: number): Uint8Array {
   return hexToBytes(n.toString(16).padStart(len * 2, '0'));
 }
-export function numberToBytesLE(n: number | JSBI, len: number): Uint8Array {
+export function numberToBytesLE(n: number | BigInteger, len: number): Uint8Array {
   return numberToBytesBE(n, len).reverse();
 }
 // Unpadded, rarely used
-export function numberToVarBytesBE(n: number | JSBI): Uint8Array {
+export function numberToVarBytesBE(n: number | BigInteger): Uint8Array {
   return hexToBytes(numberToHexUnpadded(n));
 }
 
@@ -175,27 +175,27 @@ export function utf8ToBytes(str: string): Uint8Array {
 
 // Bit operations
 // Calculates amount of bits in a bigint.
-export function bitLen(n: JSBI) {
+export function bitLen(n: BigInteger) {
   let len;
-  for (len = 0; JSBI.greaterThan(n, ZERO); n = JSBI.signedRightShift(n, ONE), len += 1);
+  for (len = 0; n.greater(ZERO); n = n.shiftRight(1), len += 1);
   return len;
-}
+  }
 
 // Gets single bit at position.
-export function bitGet(n: JSBI, pos: number) {
-  return JSBI.bitwiseAnd(JSBI.signedRightShift(n, JSBI.BigInt(pos)), ONE);
+export function bitGet(n: BigInteger, pos: number) {
+  return n.shiftRight(bigInt(pos)).and(_1n);
 }
 
 // Sets single bit at position.
-export const bitSet = (n: JSBI, pos: number, value: boolean) => {
-  return JSBI.bitwiseOr(n, JSBI.leftShift(value ? ONE : ZERO, JSBI.BigInt(pos)));
+export const bitSet = (n: BigInteger, pos: number, value: boolean) => {
+  return n.or((value ? _1n : _0n).shiftLeft(bigInt(pos)));
 };
 
 /**
  * Calculate mask for N bits. Not using ** operator with bigints because of old engines.
  * Same as BigInt(`0b${Array(i).fill('1').join('')}`)
  */
-export const bitMask = (n: number) => JSBI.subtract(JSBI.leftShift(_2n, JSBI.BigInt(n - 1)), _1n);
+export const bitMask = (n: number) => bigInt(2).shiftLeft(n - 1).minus(_1n);
 
 // DRBG
 

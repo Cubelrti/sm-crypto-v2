@@ -1,11 +1,11 @@
 /*! noble-curves - MIT License (c) 2022 Paul Miller (paulmillr.com) */
 // Abelian group utilities
+import bigInt, { BigInteger } from 'big-integer';
 import { IField, validateField, nLength } from './modular.js';
 import { validateObject } from './utils.js';
-import JSBI from 'jsbi';
-const _0n = JSBI.BigInt(0);
-const _1n = JSBI.BigInt(1);
-const _2n = JSBI.BigInt(2);
+const _0n = bigInt(0);
+const _1n = bigInt(1);
+const _2n = bigInt(2);
 
 export type AffinePoint<T> = {
   x: T;
@@ -18,7 +18,7 @@ export interface Group<T extends Group<T>> {
   add(other: T): T;
   subtract(other: T): T;
   equals(other: T): boolean;
-  multiply(scalar: JSBI): T;
+  multiply(scalar: BigInteger): T;
 }
 
 export type GroupConstructor<T> = {
@@ -51,13 +51,13 @@ export function wNAF<T extends Group<T>>(c: GroupConstructor<T>, bits: number) {
   return {
     constTimeNegate,
     // non-const time multiplication ladder
-    unsafeLadder(elm: T, n: JSBI) {
+    unsafeLadder(elm: T, n: BigInteger) {
       let p = c.ZERO;
-      let d: T = elm;
-      while (JSBI.GT(n, _0n)) {
-        if (JSBI.bitwiseAnd(n, _1n)) p = p.add(d);
+      let d = elm;
+      while (n.greater(_0n)) {
+        if (n.and(_1n).notEquals(_0n)) p = p.add(d);
         d = d.double();
-        n = JSBI.signedRightShift(n, _1n);
+        n = n.shiftRight(1);
       }
       return p;
     },
@@ -97,7 +97,7 @@ export function wNAF<T extends Group<T>>(c: GroupConstructor<T>, bits: number) {
      * @param n scalar (we don't check here, but should be less than curve order)
      * @returns real and fake (for const-time) points
      */
-    wNAF(W: number, precomputes: T[], n: JSBI): { p: T; f: T } {
+    wNAF(W: number, precomputes: T[], n: BigInteger): { p: T; f: T } {
       // TODO: maybe check that scalar is less than group order? wNAF behavious is undefined otherwise
       // But need to carefully remove other checks before wNAF. ORDER == bits here
       const { windows, windowSize } = opts(W);
@@ -105,23 +105,23 @@ export function wNAF<T extends Group<T>>(c: GroupConstructor<T>, bits: number) {
       let p = c.ZERO;
       let f = c.BASE;
 
-      const mask = JSBI.subtract(JSBI.exponentiate(_2n, JSBI.BigInt(W)), _1n); // Create mask with W ones: 0b1111 for W=4 etc.
+      const mask = bigInt(2).pow(W).minus(_1n); // Create mask with W ones: 0b1111 for W=4 etc.
       const maxNumber = 2 ** W;
-      const shiftBy = JSBI.BigInt(W);
-
+      const shiftBy = bigInt(W);
+      
       for (let window = 0; window < windows; window++) {
         const offset = window * windowSize;
         // Extract W bits.
-        let wbits = JSBI.toNumber(JSBI.bitwiseAnd(n, mask));
+        let wbits = n.and(mask).toJSNumber();
 
         // Shift number by W bits.
-        n = JSBI.signedRightShift(n, shiftBy);
-
+        n = n.shiftRight(shiftBy);
+        
         // If the bits are bigger than max size, we'll split those.
         // +224 => 256 - 32
         if (wbits > windowSize) {
           wbits -= maxNumber;
-          n = JSBI.add(n, _1n);
+          n = n.add(_1n);
         }
 
         // This code was first written with assumption that 'f' and 'p' will never be infinity point:
@@ -151,7 +151,7 @@ export function wNAF<T extends Group<T>>(c: GroupConstructor<T>, bits: number) {
       return { p, f };
     },
 
-    wNAFCached(P: T, precomputesMap: Map<T, T[]>, n: JSBI, transform: Mapper<T>): { p: T; f: T } {
+    wNAFCached(P: T, precomputesMap: Map<T, T[]>, n: BigInteger, transform: Mapper<T>): { p: T; f: T } {
       // @ts-ignore
       const W: number = P._WINDOW_SIZE || 1;
       // Calculate precomputes on a first run, reuse them after
@@ -171,11 +171,11 @@ export function wNAF<T extends Group<T>>(c: GroupConstructor<T>, bits: number) {
 // Though generator can be different (Fp2 / Fp6 for BLS).
 export type BasicCurve<T> = {
   Fp: IField<T>; // Field over which we'll do calculations (Fp)
-  n: JSBI; // Curve order, total count of valid points in the field
+  n: BigInteger; // Curve order, total count of valid points in the field
   nBitLength?: number; // bit length of curve order
   nByteLength?: number; // byte length of curve order
-  h: JSBI; // cofactor. we can assign default=1, but users will just ignore it w/o validation
-  hEff?: JSBI; // Number to multiply to clear cofactor
+  h: BigInteger; // cofactor. we can assign default=1, but users will just ignore it w/o validation
+  hEff?: BigInteger; // Number to multiply to clear cofactor
   Gx: T; // base point X coordinate
   Gy: T; // base point Y coordinate
   allowInfinityPoint?: boolean; // bls12-381 requires it. ZERO point is valid, but invalid pubkey

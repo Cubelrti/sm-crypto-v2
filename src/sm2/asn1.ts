@@ -3,9 +3,9 @@
 import * as utils from './curves/utils';
 import { ONE } from './bn';
 import { utf8ToHex } from './utils';
-import JSBI from 'jsbi';
+import { BigInteger } from 'big-integer';
 
-export function bigintToValue(bigint: JSBI) {
+export function bigintToValue(bigint: BigInteger) {
   let h = bigint.toString(16)
   if (h[0] !== '-') {
     // 正数
@@ -24,7 +24,7 @@ export function bigintToValue(bigint: JSBI) {
 
     // 对绝对值取反，加1
     
-    let output = JSBI.add(JSBI.bitwiseXor(mask, bigint), ONE);
+    let output = mask.xor(bigint).add(ONE);
     h = output.toString(16).replace(/^-/, '')
   }
   return h
@@ -71,7 +71,7 @@ class ASN1Object {
 }
 
 class DERInteger extends ASN1Object {
-  constructor(bigint: JSBI) {
+  constructor(bigint: BigInteger) {
     super()
 
     this.t = '02' // 整型标签说明
@@ -142,7 +142,7 @@ function getStartOfV(str: string, start: number) {
 /**
  * ASN.1 der 编码，针对 sm2 签名
  */
-export function encodeDer(r: JSBI, s: JSBI) {
+export function encodeDer(r: BigInteger, s: BigInteger) {
   const derR = new DERInteger(r)
   const derS = new DERInteger(s)
   const derSeq = new DERSequence([derR, derS])
@@ -150,7 +150,7 @@ export function encodeDer(r: JSBI, s: JSBI) {
   return derSeq.getEncodedHex()
 }
 
-export function encodeEnc(x: JSBI, y: JSBI, hash: string, cipher: string) {
+export function encodeEnc(x: BigInteger, y: BigInteger, hash: string, cipher: string) {
   const derX = new DERInteger(x)
   const derY = new DERInteger(y)
   const derHash = new DEROctetString(hash)

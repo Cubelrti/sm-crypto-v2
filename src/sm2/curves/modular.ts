@@ -1,5 +1,6 @@
 /*! noble-curves - MIT License (c) 2022 Paul Miller (paulmillr.com) */
 // Utilities for modular arithmetics and finite fields
+import { BigInteger, isInstance } from 'big-integer';
 import {
   bitMask,
   numberToBytesBE,
@@ -9,19 +10,19 @@ import {
   ensureBytes,
   validateObject,
 } from './utils.js';
-import JSBI from 'jsbi';
+import bigInt from 'big-integer';
 
 // prettier-ignore
-const _0n = JSBI.BigInt(0), _1n = JSBI.BigInt(1), _2n = JSBI.BigInt(2), _3n = JSBI.BigInt(3);
+const _0n = bigInt(0), _1n = bigInt(1), _2n = bigInt(2), _3n = bigInt(3);
 // prettier-ignore
-const _4n = JSBI.BigInt(4), _5n = JSBI.BigInt(5), _8n = JSBI.BigInt(8);
+const _4n = bigInt(4), _5n = bigInt(5), _8n = bigInt(8);
 // prettier-ignore
-const _9n = JSBI.BigInt(9), _16n = JSBI.BigInt(16);
+const _9n = bigInt(9), _16n = bigInt(16);
 
 // Calculates a modulo b
-export function mod(a: JSBI, b: JSBI): JSBI {
-  const result = JSBI.remainder(a, b);
-  return JSBI.greaterThanOrEqual(result, _0n) ? result : JSBI.add(b, result);
+export function mod(a: BigInteger, b: BigInteger): BigInteger {
+  const result = a.remainder(b);
+  return result.greaterOrEquals(_0n) ? result : b.add(result);
 }
 /**
  * Efficiently raise num to power and do modular division.
@@ -30,31 +31,31 @@ export function mod(a: JSBI, b: JSBI): JSBI {
  * pow(2n, 6n, 11n) // 64n % 11n == 9n
  */
 // TODO: use field version && remove
-export function pow(num: JSBI, power: JSBI, modulo: JSBI): JSBI {
-  if (JSBI.lessThanOrEqual(modulo, _0n) || JSBI.lessThan(power, _0n)) throw new Error('Expected power/modulo > 0');
-  if (JSBI.equal(modulo, _1n)) return _0n;
+export function pow(num: BigInteger, power: BigInteger, modulo: BigInteger): BigInteger {
+  if (modulo.lesserOrEquals(_0n) || power.lesser(_0n)) throw new Error('Expected power/modulo > 0');
+  if (modulo.equals(_1n)) return _0n;
   let res = _1n;
-  while (JSBI.greaterThan(power, _0n)) {
-    if (JSBI.equal(JSBI.bitwiseAnd(power, _1n), _1n)) res = JSBI.remainder(JSBI.multiply(res, num), modulo);
-    num = JSBI.remainder(JSBI.multiply(num, num), modulo);
-    power = JSBI.signedRightShift(power, _1n);
+  while (power.greater(_0n)) {
+    if (power.and(_1n).equals(_1n)) res = res.multiply(num).mod(modulo);
+    num = num.multiply(num).mod(modulo);
+    power = power.shiftRight(1);
   }
   return res;
 }
 
 // Does x ^ (2 ^ power) mod p. pow2(30, 4) == 30 ^ (2 ^ 4)
-export function pow2(x: JSBI, power: JSBI, modulo: JSBI): JSBI {
+export function pow2(x: BigInteger, power: BigInteger, modulo: BigInteger): BigInteger {
   let res = x;
-  while (JSBI.greaterThan(power, _0n)) {
-    res = JSBI.remainder(JSBI.multiply(res, res), modulo);
-    power = JSBI.subtract(power, _1n);
+  while (power.greater(_0n)) {
+    res = res.multiply(res).mod(modulo);
+    power = power.minus(_1n);
   }
   return res;
 }
 
 // Inverses number over modulo
-export function invert(number: JSBI, modulo: JSBI): JSBI {
-  if (JSBI.equal(number, _0n) || JSBI.lessThanOrEqual(modulo, _0n)) {
+export function invert(number: BigInteger, modulo: BigInteger): BigInteger {
+  if (number.equals(_0n) || modulo.lesserOrEquals(_0n)) {
     throw new Error(`invert: expected positive integers, got n=${number.toString()} mod=${modulo.toString()}`);
   }
   // Euclidean GCD https://brilliant.org/wiki/extended-euclidean-algorithm/
@@ -62,16 +63,16 @@ export function invert(number: JSBI, modulo: JSBI): JSBI {
   let b = modulo;
   // prettier-ignore
   let x = _0n, y = _1n, u = _1n, v = _0n;
-  while (!JSBI.equal(a, _0n)) {
-    const q = JSBI.divide(b, a);
-    const r = JSBI.remainder(b, a);
-    const m = JSBI.subtract(x, JSBI.multiply(u, q));
-    const n = JSBI.subtract(y, JSBI.multiply(v, q));
+  while (!a.equals(_0n)) {
+    const q = b.divide(a);
+    const r = b.mod(a);
+    const m = x.minus(u.multiply(q));
+    const n = y.minus(v.multiply(q));
     // prettier-ignore
     b = a, a = r, x = u, y = v, u = m, v = n;
   }
   const gcd = b;
-  if (!JSBI.equal(gcd, _1n)) throw new Error('invert: does not exist');
+  if (!gcd.equals(_1n)) throw new Error('invert: does not exist');
   return mod(x, modulo);
 }
 
@@ -83,26 +84,26 @@ export function invert(number: JSBI, modulo: JSBI): JSBI {
  * @param P field order
  * @returns function that takes field Fp (created from P) and number n
  */
-export function tonelliShanks(P: JSBI) {
-  const legendreC = JSBI.divide(JSBI.subtract(P, _1n), _2n);
+export function tonelliShanks(P: BigInteger) {
+  const legendreC = P.minus(_1n).divide(_2n);
 
-  let Q: JSBI, S: JSBI, Z: JSBI;
-  for (Q = JSBI.subtract(P, _1n), S = _0n; JSBI.equal(JSBI.remainder(Q, _2n), _0n); Q = JSBI.divide(Q, _2n), S = JSBI.add(S, _1n));
+  let Q: BigInteger, S: BigInteger, Z: BigInteger;
+  for (Q = P.minus(_1n), S = _0n; Q.mod(_2n).equals(_0n); Q = Q.divide(_2n), S = S.add(_1n));
 
-  for (Z = _2n; JSBI.lessThan(Z, P) && !JSBI.equal(pow(Z, legendreC, P), JSBI.subtract(P, _1n)); Z = JSBI.add(Z, _1n));
+  for (Z = _2n; Z.lesser(P) && !pow(Z, legendreC, P).equals(P.minus(_1n)); Z = Z.add(_1n));
 
-  if (S === _1n) {
-    const p1div4 = JSBI.divide(JSBI.add(P, _1n), _4n);
-    return function tonelliFast<T>(Fp: IField<T>, n: T) {
+  if (S.equals(_1n)) {
+    const p1div4 = P.add(_1n).divide(_4n);
+    return function tonelliFast(Fp, n) {
       const root = Fp.pow(n, p1div4);
       if (!Fp.eql(Fp.sqr(root), n)) throw new Error('Cannot find square root');
       return root;
     };
   }
 
-  const Q1div2 = JSBI.divide(JSBI.add(Q, _1n), _2n);
-  return function tonelliSlow<T>(Fp: IField<T>, n: T): T {
-    if (Fp.pow(n, legendreC) === Fp.neg(Fp.ONE)) throw new Error('Cannot find square root');
+  const Q1div2 = Q.add(_1n).divide(_2n);
+  return function tonelliSlow(Fp, n) {
+    if (Fp.pow(n, legendreC).equals(Fp.neg(Fp.ONE))) throw new Error('Cannot find square root');
     let r = S;
     let g = Fp.pow(Fp.mul(Fp.ONE, Z), Q);
     let x = Fp.pow(n, Q1div2);
@@ -111,13 +112,13 @@ export function tonelliShanks(P: JSBI) {
     while (!Fp.eql(b, Fp.ONE)) {
       if (Fp.eql(b, Fp.ZERO)) return Fp.ZERO;
       let m = _1n;
-      for (let t2 = Fp.sqr(b); JSBI.lessThan(m, r); m = JSBI.add(m, _1n)) {
+      for (let t2 = Fp.sqr(b); m.lesser(r); m = m.add(_1n)) {
         if (Fp.eql(t2, Fp.ONE)) break;
         t2 = Fp.sqr(t2);
       }
-      const ge = Fp.pow(g, JSBI.leftShift(_1n, JSBI.BigInt(
-        JSBI.subtract(JSBI.subtract(r, m), _1n)
-      )));
+      const ge = Fp.pow(g, bigInt(2).pow(
+        r.minus(m).minus(_1n)
+      ));
       g = Fp.sqr(ge);
       x = Fp.mul(x, ge);
       b = Fp.mul(b, g);
@@ -125,21 +126,22 @@ export function tonelliShanks(P: JSBI) {
     }
     return x;
   };
+
 }
 
-export function FpSqrt(P: JSBI) {
-  if (JSBI.equal(JSBI.remainder(P, _4n), _3n)) {
-    const p1div4 = JSBI.divide(JSBI.add(P, _1n), _4n);
-    return function sqrt3mod4<T>(Fp: IField<T>, n: T) {
+export function FpSqrt(P: BigInteger) {
+  if (P.mod(_4n).equals(_3n)) {
+    const p1div4 = P.add(_1n).divide(_4n);
+    return function sqrt3mod4(Fp, n) {
       const root = Fp.pow(n, p1div4);
       if (!Fp.eql(Fp.sqr(root), n)) throw new Error('Cannot find square root');
       return root;
     };
   }
 
-  if (JSBI.equal(JSBI.remainder(P, _8n), _5n)) {
-    const c1 = JSBI.divide(JSBI.subtract(P, _5n), _8n);
-    return function sqrt5mod8<T>(Fp: IField<T>, n: T) {
+  if (P.mod(_8n).equals(_5n)) {
+    const c1 = P.minus(_5n).divide(_8n);
+    return function sqrt5mod8(Fp, n) {
       const n2 = Fp.mul(n, _2n);
       const v = Fp.pow(n2, c1);
       const nv = Fp.mul(n, v);
@@ -150,7 +152,7 @@ export function FpSqrt(P: JSBI) {
     };
   }
 
-  if (JSBI.equal(JSBI.remainder(P, _16n), _9n)) {
+  if (P.mod(_16n).equals(_9n)) {
     // Logic for P ≡ 9 (mod 16) if necessary
     // Placeholder for additional implementation
   }
@@ -159,14 +161,14 @@ export function FpSqrt(P: JSBI) {
 }
 
 // Little-endian check for first LE bit (last BE bit);
-export const isNegativeLE = (num: JSBI, modulo: JSBI) => JSBI.equal(JSBI.bitwiseAnd(mod(num, modulo), _1n), _1n);
+export const isNegativeLE = (num: BigInteger, modulo: BigInteger) => mod(num, modulo).and(_1n).equals(_1n);
 
 // Field is not always over prime: for example, Fp2 has ORDER(q)=p^m
 export interface IField<T> {
-  ORDER: JSBI;
+  ORDER: BigInteger;
   BYTES: number;
   BITS: number;
-  MASK: JSBI;
+  MASK: BigInteger;
   ZERO: T;
   ONE: T;
   // 1-arg
@@ -181,13 +183,13 @@ export interface IField<T> {
   eql(lhs: T, rhs: T): boolean;
   add(lhs: T, rhs: T): T;
   sub(lhs: T, rhs: T): T;
-  mul(lhs: T, rhs: T | JSBI): T;
-  pow(lhs: T, power: JSBI): T;
-  div(lhs: T, rhs: T | JSBI): T;
+  mul(lhs: T, rhs: T | BigInteger): T;
+  pow(lhs: T, power: BigInteger): T;
+  div(lhs: T, rhs: T | BigInteger): T;
   // N for NonNormalized (for now)
   addN(lhs: T, rhs: T): T;
   subN(lhs: T, rhs: T): T;
-  mulN(lhs: T, rhs: T | JSBI): T;
+  mulN(lhs: T, rhs: T | BigInteger): T;
   sqrN(num: T): T;
 
   // Optional
@@ -196,7 +198,7 @@ export interface IField<T> {
   // NOTE: sgn0 is 'negative in LE', which is same as odd. And negative in LE is kinda strange definition anyway.
   isOdd?(num: T): boolean; // Odd instead of even since we have it for Fp2
   // legendre?(num: T): T;
-  pow(lhs: T, power: JSBI): T;
+  pow(lhs: T, power: BigInteger): T;
   invertBatch: (lst: T[]) => T[];
   toBytes(num: T): Uint8Array;
   fromBytes(bytes: Uint8Array): T;
@@ -229,16 +231,16 @@ export function validateField<T>(field: IField<T>) {
  * Same as `pow` but for Fp: non-constant-time.
  * Unsafe in some contexts: uses ladder, so can expose bigint bits.
  */
-export function FpPow<T>(f: IField<T>, num: T, power: JSBI): T {
-  if (JSBI.lessThan(power, _0n)) throw new Error('Expected power > 0');
-  if (JSBI.equal(power, _0n)) return f.ONE;
-  if (JSBI.equal(power, _1n)) return num;
+export function FpPow<T>(f: IField<T>, num: T, power: BigInteger): T {
+  if (power.lesser(_0n)) throw new Error('Expected power > 0');
+  if (power.equals(_0n)) return f.ONE;
+  if (power.equals(_1n)) return num;
   let p = f.ONE;
   let d = num;
-  while (JSBI.greaterThan(power, _0n)) {
-    if (JSBI.equal(JSBI.bitwiseAnd(power, _1n), _1n)) p = f.mul(p, d);
+  while (power.greater(_0n)) {
+    if (power.and(_1n).equals(_1n)) p = f.mul(p, d);
     d = f.sqr(d);
-    power = JSBI.signedRightShift(power, _1n);
+    power = power.shiftRight(1);
   }
   return p;
 }
@@ -266,28 +268,28 @@ export function FpInvertBatch<T>(f: IField<T>, nums: T[]): T[] {
   return tmp;
 }
 
-export function FpDiv<T>(f: IField<T>, lhs: T, rhs: T | JSBI): T {
-  return f.mul(lhs, rhs instanceof JSBI ? invert(rhs, f.ORDER) : f.inv(rhs));
+export function FpDiv<T>(f: IField<T>, lhs: T, rhs: T | BigInteger): T {
+  return f.mul(lhs, isInstance(rhs) ? invert(rhs, f.ORDER) : f.inv(rhs));
 }
 
 // This function returns True whenever the value x is a square in the field F.
 export function FpIsSquare<T>(f: IField<T>) {
-  const legendreConst = JSBI.divide(JSBI.subtract(f.ORDER, _1n), _2n); // Integer arithmetic
-  return (x: T): boolean => {
+  const legendreConst = f.ORDER.minus(_1n).divide(_2n); // Integer arithmetic
+  return (x) => {
     const p = f.pow(x, legendreConst);
     return f.eql(p, f.ZERO) || f.eql(p, f.ONE);
   };
 }
 
 // CURVE.n lengths
-export function nLength(n: JSBI, nBitLength?: number) {
+export function nLength(n: BigInteger, nBitLength?: number) {
   // Bit size, byte size of CURVE.n
   const _nBitLength = nBitLength !== undefined ? nBitLength : n.toString(2).length;
   const nByteLength = Math.ceil(_nBitLength / 8);
   return { nBitLength: _nBitLength, nByteLength };
 }
 
-type FpField = IField<JSBI> & Required<Pick<IField<JSBI>, 'isOdd'>>;
+type FpField = IField<BigInteger> & Required<Pick<IField<BigInteger>, 'isOdd'>>;
 /**
  * Initializes a finite field over prime. **Non-primes are not supported.**
  * Do not init in loop: slow. Very fragile: always run a benchmark on a change.
@@ -302,12 +304,12 @@ type FpField = IField<JSBI> & Required<Pick<IField<JSBI>, 'isOdd'>>;
  */
 
 export function Field(
-  ORDER: JSBI,
+  ORDER: BigInteger,
   bitLen?: number,
   isLE = false,
-  redef: Partial<IField<JSBI>> = {}
+  redef: Partial<IField<BigInteger>> = {}
 ): Readonly<FpField> {
-  if (JSBI.lessThanOrEqual(ORDER, _0n)) throw new Error(`Expected Field ORDER > 0, got ${ORDER.toString()}`);
+  if (ORDER.lesserOrEquals(_0n)) throw new Error(`Expected Field ORDER > 0, got ${ORDER.toString()}`);
   const { nBitLength: BITS, nByteLength: BYTES } = nLength(ORDER, bitLen);
   if (BYTES > 2048) throw new Error('Field lengths over 2048 bytes are not supported');
   const sqrtP = FpSqrt(ORDER);
@@ -320,28 +322,28 @@ export function Field(
     ONE: _1n,
     create: (num) => mod(num, ORDER),
     isValid: (num) => {
-      if (!(num instanceof JSBI))
-        throw new Error(`Invalid field element: expected JSBI bigint, got ${typeof num}`);
-      return JSBI.greaterThanOrEqual(num, _0n) && JSBI.lessThan(num, ORDER);
+      if (!(isInstance(num)))
+        throw new Error(`Invalid field element: expected BigInteger, got ${typeof num}`);
+      return num.greaterOrEquals(_0n) && num.lesser(ORDER);
     },
-    is0: (num) => JSBI.equal(num, _0n),
-    isOdd: (num) => JSBI.equal(JSBI.bitwiseAnd(num, _1n), _1n),
-    neg: (num) => mod(JSBI.unaryMinus(num), ORDER),
-    eql: (lhs, rhs) => JSBI.equal(lhs, rhs),
-
-    sqr: (num) => mod(JSBI.multiply(num, num), ORDER),
-    add: (lhs, rhs) => mod(JSBI.add(lhs, rhs), ORDER),
-    sub: (lhs, rhs) => mod(JSBI.subtract(lhs, rhs), ORDER),
-    mul: (lhs, rhs) => mod(JSBI.multiply(lhs, rhs), ORDER),
+    is0: (num) => num.equals(_0n),
+    isOdd: (num) => num.and(_1n).equals(_1n),
+    neg: (num) => mod(num.negate(), ORDER),
+    eql: (lhs, rhs) => lhs.equals(rhs),
+    
+    sqr: (num) => mod(num.multiply(num), ORDER),
+    add: (lhs, rhs) => mod(lhs.add(rhs), ORDER),
+    sub: (lhs, rhs) => mod(lhs.subtract(rhs), ORDER),
+    mul: (lhs, rhs) => mod(lhs.multiply(rhs), ORDER),
     pow: (num, power) => FpPow(f, num, power),
-    div: (lhs, rhs) => mod(JSBI.multiply(lhs, invert(rhs, ORDER)), ORDER),
-
+    div: (lhs, rhs) => mod(lhs.multiply(invert(rhs, ORDER)), ORDER),
+    
     // Same as above, but doesn't normalize
-    sqrN: (num) => JSBI.multiply(num, num),
-    addN: (lhs, rhs) => JSBI.add(lhs, rhs),
-    subN: (lhs, rhs) => JSBI.subtract(lhs, rhs),
-    mulN: (lhs, rhs) => JSBI.multiply(lhs, rhs),
-
+    sqrN: (num) => num.multiply(num),
+    addN: (lhs, rhs) => lhs.add(rhs),
+    subN: (lhs, rhs) => lhs.subtract(rhs),
+    mulN: (lhs, rhs) => lhs.multiply(rhs),
+    
     inv: (num) => invert(num, ORDER),
     sqrt: redef.sqrt || ((n) => sqrtP(f, n)),
     invertBatch: (lst) => FpInvertBatch(f, lst),
@@ -376,16 +378,16 @@ export function FpSqrtEven<T>(Fp: IField<T>, elm: T) {
  */
 export function hashToPrivateScalar(
   hash: string | Uint8Array,
-  groupOrder: JSBI,
+  groupOrder: BigInteger,
   isLE = false
-): JSBI {
+): BigInteger {
   hash = ensureBytes('privateHash', hash);
   const hashLen = hash.length;
   const minLen = nLength(groupOrder).nByteLength + 8;
   if (minLen < 24 || hashLen < minLen || hashLen > 1024)
     throw new Error(`hashToPrivateScalar: expected ${minLen}-1024 bytes of input, got ${hashLen}`);
   const num = isLE ? bytesToNumberLE(hash) : bytesToNumberBE(hash);
-  return JSBI.add(mod(num, JSBI.subtract(groupOrder, _1n)), _1n);
+  return mod(num, groupOrder.minus(_1n)).add(_1n);
 }
 
 /**
@@ -394,8 +396,8 @@ export function hashToPrivateScalar(
  * @param fieldOrder number of field elements, usually CURVE.n
  * @returns byte length of field
  */
-export function getFieldBytesLength(fieldOrder: JSBI): number {
-  if (!(fieldOrder instanceof JSBI)) throw new Error('field order must be JSBI bigint');
+export function getFieldBytesLength(fieldOrder: BigInteger): number {
+  if (!(isInstance(fieldOrder))) throw new Error('field order must be BigInteger');
   const bitLength = fieldOrder.toString(2).length;
   return Math.ceil(bitLength / 8);
 }
@@ -407,7 +409,7 @@ export function getFieldBytesLength(fieldOrder: JSBI): number {
  * @param fieldOrder number of field elements, usually CURVE.n
  * @returns byte length of target hash
  */
-export function getMinHashLength(fieldOrder: JSBI): number {
+export function getMinHashLength(fieldOrder: BigInteger): number {
   const length = getFieldBytesLength(fieldOrder);
   return length + Math.ceil(length / 2);
 }
@@ -425,14 +427,14 @@ export function getMinHashLength(fieldOrder: JSBI): number {
  * @param isLE interpret hash bytes as LE num
  * @returns valid private scalar
  */
-export function mapHashToField(key: Uint8Array, fieldOrder: JSBI, isLE = false): Uint8Array {
+export function mapHashToField(key: Uint8Array, fieldOrder: BigInteger, isLE = false): Uint8Array {
   const len = key.length;
   const fieldLen = getFieldBytesLength(fieldOrder);
   const minLen = getMinHashLength(fieldOrder);
   if (len < 16 || len < minLen || len > 1024)
     throw new Error(`expected ${minLen}-1024 bytes of input, got ${len}`);
   const num = isLE ? bytesToNumberLE(key) : bytesToNumberBE(key);
-  const reduced = JSBI.add(mod(num, JSBI.subtract(fieldOrder, _1n)), _1n);
+  const reduced = mod(num, fieldOrder.minus(_1n)).add(_1n);
   return isLE ? numberToBytesLE(reduced, fieldLen) : numberToBytesBE(reduced, fieldLen);
 }
 

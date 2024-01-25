@@ -1,9 +1,9 @@
 /* eslint-disable no-bitwise, no-mixed-operators, no-use-before-define, max-len */
 import * as utils from './curves/utils';
-import JSBI from 'jsbi'
 import { sm2Curve, sm2Fp } from './ec';
 import { mod } from './curves/modular';
 import { ONE, TWO, ZERO } from './bn';
+import bigInt from 'big-integer';
 
 export interface KeyPair {
   privateKey: string
@@ -14,7 +14,7 @@ export interface KeyPair {
  * 生成密钥对：publicKey = privateKey * G
  */
 export function generateKeyPairHex(str?: string): KeyPair {
-  const privateKey = str ? utils.numberToBytesBE((JSBI.add(mod(JSBI.BigInt(str), ONE), ONE)), 32) : sm2Curve.utils.randomPrivateKey()
+  const privateKey = str ? utils.numberToBytesBE((mod(bigInt(str), ONE).add(ONE)), 32) : sm2Curve.utils.randomPrivateKey()
   // const random = typeof a === 'string' ? new BigInteger(a, b) :
   //   a ? new BigInteger(a, b!, c!) : new BigInteger(n.bitLength(), rng)
   // const d = random.mod(n.subtract(BigInteger.ONE)).add(BigInteger.ONE) // 随机数
@@ -41,7 +41,7 @@ export function compressPublicKeyHex(s: string) {
   const y = utils.hexToNumber(s.substring(len + 2, len + len + 2))
 
   let prefix = '03'
-  if (JSBI.equal(mod(y, TWO), ZERO)) prefix = '02'
+  if (mod(y, TWO).equals(ZERO)) prefix = '02'
   return prefix + xHex
 }
 

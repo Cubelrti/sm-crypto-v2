@@ -5,6 +5,7 @@
 // Web: globalThis.crypto
 // Node: async import("crypto").webcrypto
 // Mini Program: wx.getRandomValues
+import globalThis from './globalThis';
 declare module wx {
   function getRandomValues(options: {
     length: number;

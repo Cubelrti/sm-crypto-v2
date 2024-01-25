@@ -7,7 +7,7 @@ import { field, sm2Curve } from './ec';
 import { ONE, ZERO } from './bn';
 import { bytesToHex } from '@/sm3/utils';
 import { ProjPointType } from './curves/weierstrass';
-import JSBI from 'jsbi';
+import { BigInteger } from 'big-integer';
 
 export * from './utils'
 export { initRNGPool } from './rng'
@@ -19,7 +19,7 @@ export const EmptyArray = new Uint8Array()
 /**
  * 加密
  */
-export function doEncrypt(msg: string | Uint8Array, publicKey: string | ProjPointType<JSBI>, cipherMode = 1, options?: {
+export function doEncrypt(msg: string | Uint8Array, publicKey: string | ProjPointType<BigInteger>, cipherMode = 1, options?: {
   asn1?: boolean // 使用 ASN.1 对 C1 编码
 }) {
 
@@ -100,7 +100,7 @@ export function doDecrypt(encryptData: string, privateKey: string, cipherMode = 
 } = {}) {
   const privateKeyInteger = utils.hexToNumber(privateKey)
 
-  let c1: ProjPointType<JSBI>
+  let c1: ProjPointType<BigInteger>
   let c2: string
   let c3: string
   
@@ -143,8 +143,8 @@ export function doDecrypt(encryptData: string, privateKey: string, cipherMode = 
 }
 
 export interface SignaturePoint {
-  k: JSBI
-  x1: JSBI
+  k: BigInteger
+  x1: BigInteger
 }
 
 /**
@@ -168,9 +168,9 @@ export function doSignature(msg: Uint8Array | string, privateKey: string, option
   const e = utils.hexToNumber(hashHex)
 
   // k
-  let k: JSBI | null = null
-  let r: JSBI | null = null
-  let s: JSBI | null = null
+  let k: BigInteger | null = null
+  let r: BigInteger | null = null
+  let s: BigInteger | null = null
 
   do {
     do {
@@ -184,7 +184,7 @@ export function doSignature(msg: Uint8Array | string, privateKey: string, option
 
       // r = (e + x1) mod n
       r = field.add(e, point.x1)
-    } while (JSBI.equal(r, ZERO) || JSBI.equal(JSBI.add(r, k), sm2Curve.CURVE.n));
+    } while (r.eq(ZERO) || r.add(k).eq(sm2Curve.CURVE.n));
 
     // s = ((1 + dA)^-1 * (k - r * dA)) mod n
     s = field.mul(field.inv(field.addN(dA, ONE)), field.subN(k, field.mulN(r, dA)))
@@ -196,7 +196,7 @@ export function doSignature(msg: Uint8Array | string, privateKey: string, option
 /**
  * 验签
  */
-export function doVerifySignature(msg: string | Uint8Array, signHex: string, publicKey: string | ProjPointType<JSBI>, options: { der?: boolean, hash?: boolean, userId?: string } = {}) {
+export function doVerifySignature(msg: string | Uint8Array, signHex: string, publicKey: string | ProjPointType<BigInteger>, options: { der?: boolean, hash?: boolean, userId?: string } = {}) {
   let hashHex: string
   const {
     hash,
@@ -211,8 +211,8 @@ export function doVerifySignature(msg: string | Uint8Array, signHex: string, pub
     hashHex = typeof msg === 'string' ? utf8ToHex(msg) : arrayToHex(Array.from(msg))
   }
 
-  let r: JSBI;
-  let s: JSBI;
+  let r: BigInteger;
+  let s: BigInteger;
   if (der) {
     const decodeDerObj = decodeDer(signHex) // asn.1 der 解码
     r = decodeDerObj.r
@@ -228,7 +228,7 @@ export function doVerifySignature(msg: string | Uint8Array, signHex: string, pub
   // t = (r + s) mod n
   const t = field.add(r, s)
 
-  if (JSBI.equal(t, ZERO)) return false
+  if (t.equals(ZERO)) return false
 
   // x1y1 = s * G + t * PA
   const x1y1 = sm2Curve.ProjectivePoint.BASE.multiply(s).add(PA.multiply(t))
@@ -238,7 +238,7 @@ export function doVerifySignature(msg: string | Uint8Array, signHex: string, pub
   const R = field.add(e, x1y1.x)
 
   // return r.equals(R)
-  return JSBI.equal(r, R)
+  return r.equals(R)
 }
 
 export function getZ(publicKey: string, userId = '1234567812345678') {
