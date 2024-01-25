@@ -11,6 +11,7 @@ export default defineConfig({
   format: ['esm', 'cjs'],
   target: 'esnext',
   tsconfig: 'tsconfig.json',
+  noExternal: ['jsbi'],
   esbuildOptions(options) {
     options.define.__BUILD_TS__ = Date.now().toString();
   }

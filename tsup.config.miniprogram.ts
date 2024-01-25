@@ -10,7 +10,7 @@ export default defineConfig({
   minify: false,
   format: ['cjs'],
   target: 'es5',
-  noExternal: ['@noble/curves'],
+  noExternal: ['jsbi'],
   tsconfig: 'tsconfig.json',
   esbuildOptions(options) {
     options.define.__BUILD_TS__ = Date.now().toString();

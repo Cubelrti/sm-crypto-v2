@@ -1,6 +1,6 @@
 import { run, mark, utils } from 'micro-bmark';
 import * as sm from 'sm-crypto'
-import * as smV2 from 'sm-crypto-v2'
+import * as smV2 from '../dist/index.js'
 
 const msg = 'Hello world~!'
 const longMsg = msg.repeat(10000)

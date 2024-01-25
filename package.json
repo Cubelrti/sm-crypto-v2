@@ -33,7 +33,9 @@
   "author": "june_01",
   "license": "MIT",
   "dependencies": {
-    "@noble/curves": "^1.1.0"
+    "@noble/curves": "^1.1.0",
+    "big-integer": "^1.6.52",
+    "jsbi": "^4.3.0"
   },
   "devDependencies": {
     "@swc-node/register": "^1.6.6",
