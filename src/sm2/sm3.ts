@@ -1,16 +1,17 @@
 // import assert from './_assert.js';
+import JSBI from 'jsbi';
 import { Hash, createView, Input, toBytes, wrapConstructor } from '../sm3/utils.js';
 
 const BoolA = (A: number, B: number, C: number) => ((A & B) | (A & C)) | (B & C)
 const BoolB = (A: number, B: number, C: number) => ((A ^ B) ^ C)
 const BoolC = (A: number, B: number, C: number) => (A & B) | ((~A) & C)
 // Polyfill for Safari 14
-function setBigUint64(view: DataView, byteOffset: number, value: bigint, isLE: boolean): void {
-  if (typeof view.setBigUint64 === 'function') return view.setBigUint64(byteOffset, value, isLE);
-  const _32n = BigInt(32);
-  const _u32_max = BigInt(0xffffffff);
-  const wh = Number((value >> _32n) & _u32_max);
-  const wl = Number(value & _u32_max);
+function setBigUint64(view: DataView, byteOffset: number, value: JSBI, isLE: boolean): void {
+  // if (typeof view.setBigUint64 === 'function') return view.setBigUint64(byteOffset, value, isLE);
+  const _32n = JSBI.BigInt(32);
+  const _u32_max = JSBI.BigInt(0xffffffff);
+  const wh = Number((JSBI.bitwiseAnd(JSBI.signedRightShift(value, _32n), _u32_max)));
+  const wl = Number(JSBI.bitwiseAnd(value, _u32_max));
   const h = isLE ? 4 : 0;
   const l = isLE ? 0 : 4;
   view.setUint32(byteOffset + h, wh, isLE);
@@ -120,7 +121,7 @@ export abstract class SHA2<T extends SHA2<T>> extends Hash<T> {
     // Note: sha512 requires length to be 128bit integer, but length in JS will overflow before that
     // You need to write around 2 exabytes (u64_max / 8 / (1024**6)) for this to happen.
     // So we just write lowest 64 bits of that value.
-    setBigUint64(view, blockLen - 8, BigInt(this.length * 8), isLE);
+    setBigUint64(view, blockLen - 8, JSBI.BigInt(this.length * 8), isLE);
     this.process(view, 0);
     const oview = createView(out);
     const len = this.outputLen;

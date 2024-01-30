@@ -19,14 +19,39 @@ export const EmptyArray = new Uint8Array()
 /**
  * 加密
  */
+class LRUMap<K, V> extends Map<K, V> {
+  length: number
+  constructor(length: number) {
+    super();
+    this.length = length;
+  }
+  set(key: K, value: V) {
+    super.delete(this.size < this.length ? key : super.keys().next().value);
+    return super.set(key, value);
+  }
+}
+// 保存最后 3 个加密的公钥，用来保证在这个情况下，性能不退化的太厉害
+const precomputedPublicKey = new LRUMap<string, ProjPointType<JSBI>>(3)
 export function doEncrypt(msg: string | Uint8Array, publicKey: string | ProjPointType<JSBI>, cipherMode = 1, options?: {
   asn1?: boolean // 使用 ASN.1 对 C1 编码
 }) {
-
   const msgArr = typeof msg === 'string' ? hexToArray(utf8ToHex(msg)) : Uint8Array.from(msg)
-  const publicKeyPoint = typeof publicKey === 'string' ? sm2Curve.ProjectivePoint.fromHex(publicKey) :
-    publicKey
-
+  let publicKeyPoint: ProjPointType<JSBI>
+  if (typeof publicKey === 'string') {
+    const cached = precomputedPublicKey.get(publicKey)
+    if (cached) {
+      publicKeyPoint = cached
+    } else {
+      const point = sm2Curve.ProjectivePoint.fromHex(publicKey)
+      sm2Curve.utils.precompute(undefined, point)
+      precomputedPublicKey.set(publicKey, point)
+      publicKeyPoint = point
+    }
+  } else {
+    publicKeyPoint = publicKey
+  }
+  // publicKeyPoint = typeof publicKey === 'string' ? sm2Curve.ProjectivePoint.fromHex(publicKey) :
+  //   publicKey
   const keypair = generateKeyPairHex()
   const k = utils.hexToNumber(keypair.privateKey)
 
@@ -222,7 +247,22 @@ export function doVerifySignature(msg: string | Uint8Array, signHex: string, pub
     s = utils.hexToNumber(signHex.substring(64))
   }
   
-  const PA = typeof publicKey === 'string' ? sm2Curve.ProjectivePoint.fromHex(publicKey) : publicKey
+  let PA: ProjPointType<JSBI>
+  
+  if (typeof publicKey === 'string') {
+    const cached = precomputedPublicKey.get(publicKey)
+    if (cached) {
+      PA = cached
+    } else {
+      const point = sm2Curve.ProjectivePoint.fromHex(publicKey)
+      sm2Curve.utils.precompute(undefined, point)
+      precomputedPublicKey.set(publicKey, point)
+      PA = point
+    }
+  } else {
+    PA = publicKey
+  }
+
   const e = utils.hexToNumber(hashHex)
   
   // t = (r + s) mod n
