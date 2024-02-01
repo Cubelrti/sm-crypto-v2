@@ -2,7 +2,7 @@
 // Abelian group utilities
 import { IField, validateField, nLength } from './modular.js';
 import { validateObject } from './utils.js';
-import JSBI from 'jsbi';
+import JSBI from './jsbi.js';
 const _0n = JSBI.BigInt(0);
 const _1n = JSBI.BigInt(1);
 const _2n = JSBI.BigInt(2);

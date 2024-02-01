@@ -1,6 +1,6 @@
 /* eslint-disable no-bitwise, no-mixed-operators, no-use-before-define, max-len */
 import * as utils from './curves/utils';
-import JSBI from 'jsbi'
+import JSBI from './curves/jsbi';
 import { sm2Curve, sm2Fp } from './ec';
 import { mod } from './curves/modular';
 import { ONE, TWO, ZERO } from './bn';

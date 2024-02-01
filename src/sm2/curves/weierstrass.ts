@@ -4,7 +4,7 @@ import * as mod from './modular.js';
 import * as ut from './utils.js';
 import { CHash, Hex, PrivKey, ensureBytes } from './utils.js';
 import { Group, GroupConstructor, wNAF, BasicCurve, validateBasic, AffinePoint } from './curve.js';
-import JSBI from 'jsbi';
+import JSBI from './jsbi.js';
 
 export type { AffinePoint };
 type HmacFnSync = (key: Uint8Array, ...messages: Uint8Array[]) => Uint8Array;

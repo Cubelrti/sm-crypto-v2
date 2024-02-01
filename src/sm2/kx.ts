@@ -3,7 +3,7 @@ import { KeyPair, hexToArray, leftPad } from './utils';
 import * as utils from './curves/utils';
 import { sm3 } from './sm3';
 import { EmptyArray, getZ } from '.';
-import JSBI from 'jsbi';
+import JSBI from './curves/jsbi';
 
 
 // 用到的常数

@@ -1,4 +1,4 @@
-import JSBI from 'jsbi';
+import JSBI from './curves/jsbi';
 
 export const ZERO = JSBI.BigInt(0);
 export const ONE = JSBI.BigInt(1);

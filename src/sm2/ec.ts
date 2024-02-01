@@ -5,7 +5,7 @@ import { randomBytes } from './rng';
 import { sm3 } from './sm3';
 import { hmac } from './hmac';
 import { concatBytes } from './curves/utils';
-import JSBI from 'jsbi';
+import JSBI from './curves/jsbi';
 
 export const sm2Fp = Field(JSBI.BigInt('115792089210356248756420345214020892766250353991924191454421193933289684991999'))
 export const sm2Curve = weierstrass({

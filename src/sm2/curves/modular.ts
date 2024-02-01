@@ -9,7 +9,8 @@ import {
   ensureBytes,
   validateObject,
 } from './utils.js';
-import JSBI from 'jsbi';
+import JSBI from './jsbi.js';
+import { performance } from 'node:perf_hooks';
 
 // prettier-ignore
 const _0n = JSBI.BigInt(0), _1n = JSBI.BigInt(1), _2n = JSBI.BigInt(2), _3n = JSBI.BigInt(3);
@@ -19,6 +20,25 @@ const _4n = JSBI.BigInt(4), _5n = JSBI.BigInt(5), _8n = JSBI.BigInt(8);
 const _9n = JSBI.BigInt(9), _16n = JSBI.BigInt(16);
 
 // Calculates a modulo b
+
+// barrett reducer, for modular computation not (0, 2^n]
+function barrettMod(mod: JSBI) {
+  if (JSBI.lessThan(mod, _0n)) {
+    throw new Error('Modulus must be positive')
+  }
+  const modulus = mod;
+  const shifter = JSBI.BigInt(JSBI.__bitLength(mod) * 2);
+  const factor = JSBI.divide(JSBI.leftShift(_1n, shifter), mod)
+  return function barrettReduce(x: JSBI) {
+    // assertion omitted...
+    const v0 = JSBI.multiply(x, factor)
+    const v1 = JSBI.signedRightShift(v0, shifter)
+    const v2 = JSBI.multiply(v1, modulus)
+    const t = JSBI.subtract(x, v2)
+    return JSBI.lessThan(t, modulus) ? t : JSBI.subtract(t, modulus)
+  }
+}
+
 export function mod(a: JSBI, b: JSBI): JSBI {
   const result = JSBI.remainder(a, b);
   return JSBI.greaterThanOrEqual(result, _0n) ? result : JSBI.add(b, result);
@@ -311,6 +331,20 @@ export function Field(
   const { nBitLength: BITS, nByteLength: BYTES } = nLength(ORDER, bitLen);
   if (BYTES > 2048) throw new Error('Field lengths over 2048 bytes are not supported');
   const sqrtP = FpSqrt(ORDER);
+  // create barrett Modular function
+  const reducer = barrettMod(ORDER)
+  const modOrder = (x: JSBI) => {
+    // who is faster?
+    performance.mark('barrett reducer')
+    const m1 = reducer(x)
+    performance.mark('barrett reducer')
+    performance.mark('naive reducer')
+    const m2 = mod(x, ORDER)
+    performance.mark('naive reducer')
+    console.assert(JSBI.equal(m1, m2))
+    return m1
+  }
+  // const modOrder = (x: JSBI) => mod(x,ORDER)
   const f: Readonly<FpField> = Object.freeze({
     ORDER,
     BITS,
@@ -318,7 +352,7 @@ export function Field(
     MASK: bitMask(BITS),
     ZERO: _0n,
     ONE: _1n,
-    create: (num) => mod(num, ORDER),
+    create: (num) => modOrder(num),
     isValid: (num) => {
       if (!(num instanceof JSBI))
         throw new Error(`Invalid field element: expected JSBI bigint, got ${typeof num}`);
@@ -326,15 +360,15 @@ export function Field(
     },
     is0: (num) => JSBI.equal(num, _0n),
     isOdd: (num) => JSBI.equal(JSBI.bitwiseAnd(num, _1n), _1n),
-    neg: (num) => mod(JSBI.unaryMinus(num), ORDER),
+    neg: (num) => modOrder(JSBI.unaryMinus(num)),
     eql: (lhs, rhs) => JSBI.equal(lhs, rhs),
 
-    sqr: (num) => mod(JSBI.multiply(num, num), ORDER),
-    add: (lhs, rhs) => mod(JSBI.add(lhs, rhs), ORDER),
-    sub: (lhs, rhs) => mod(JSBI.subtract(lhs, rhs), ORDER),
-    mul: (lhs, rhs) => mod(JSBI.multiply(lhs, rhs), ORDER),
+    sqr: (num) => modOrder(JSBI.multiply(num, num)),
+    add: (lhs, rhs) => modOrder(JSBI.add(lhs, rhs)),
+    sub: (lhs, rhs) => modOrder(JSBI.subtract(lhs, rhs)),
+    mul: (lhs, rhs) => modOrder(JSBI.multiply(lhs, rhs)),
     pow: (num, power) => FpPow(f, num, power),
-    div: (lhs, rhs) => mod(JSBI.multiply(lhs, invert(rhs, ORDER)), ORDER),
+    div: (lhs, rhs) => modOrder(JSBI.multiply(lhs, invert(rhs, ORDER))),
 
     // Same as above, but doesn't normalize
     sqrN: (num) => JSBI.multiply(num, num),

@@ -1,5 +1,5 @@
 // import assert from './_assert.js';
-import JSBI from 'jsbi';
+import JSBI from './curves/jsbi';
 import { Hash, createView, Input, toBytes, wrapConstructor } from '../sm3/utils.js';
 
 const BoolA = (A: number, B: number, C: number) => ((A & B) | (A & C)) | (B & C)
@@ -10,8 +10,8 @@ function setBigUint64(view: DataView, byteOffset: number, value: JSBI, isLE: boo
   // if (typeof view.setBigUint64 === 'function') return view.setBigUint64(byteOffset, value, isLE);
   const _32n = JSBI.BigInt(32);
   const _u32_max = JSBI.BigInt(0xffffffff);
-  const wh = Number((JSBI.bitwiseAnd(JSBI.signedRightShift(value, _32n), _u32_max)));
-  const wl = Number(JSBI.bitwiseAnd(value, _u32_max));
+  const wh = JSBI.toNumber((JSBI.bitwiseAnd(JSBI.signedRightShift(value, _32n), _u32_max)));
+  const wl = JSBI.toNumber(JSBI.bitwiseAnd(value, _u32_max));
   const h = isLE ? 4 : 0;
   const l = isLE ? 0 : 4;
   view.setUint32(byteOffset + h, wh, isLE);

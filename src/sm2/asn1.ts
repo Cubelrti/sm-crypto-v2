@@ -3,7 +3,7 @@
 import * as utils from './curves/utils';
 import { ONE } from './bn';
 import { utf8ToHex } from './utils';
-import JSBI from 'jsbi';
+import JSBI from './curves/jsbi';
 
 export function bigintToValue(bigint: JSBI) {
   let h = bigint.toString(16)

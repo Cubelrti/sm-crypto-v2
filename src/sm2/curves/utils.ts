@@ -3,7 +3,7 @@
 // This is OK: `abstract` directory does not use noble-hashes.
 // User may opt-in into using different hashing library. This way, noble-hashes
 // won't be included into their bundle.
-import JSBI from 'jsbi';
+import JSBI from './jsbi.js';
 import { ZERO, ONE } from '../bn';
 
 const _0n = JSBI.BigInt(0);

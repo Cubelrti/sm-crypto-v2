@@ -7,7 +7,7 @@ import { field, sm2Curve } from './ec';
 import { ONE, ZERO } from './bn';
 import { bytesToHex } from '@/sm3/utils';
 import { ProjPointType } from './curves/weierstrass';
-import JSBI from 'jsbi';
+import JSBI from './curves/jsbi';
 
 export * from './utils'
 export { initRNGPool } from './rng'
@@ -43,8 +43,8 @@ export function doEncrypt(msg: string | Uint8Array, publicKey: string | ProjPoin
       publicKeyPoint = cached
     } else {
       const point = sm2Curve.ProjectivePoint.fromHex(publicKey)
-      sm2Curve.utils.precompute(undefined, point)
-      precomputedPublicKey.set(publicKey, point)
+      // sm2Curve.utils.precompute(undefined, point)
+      // precomputedPublicKey.set(publicKey, point)
       publicKeyPoint = point
     }
   } else {
