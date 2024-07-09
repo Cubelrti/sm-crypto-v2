@@ -2,6 +2,13 @@
 
 All notable changes to this project will be documented in this file. See [standard-version](https://github.com/conventional-changelog/standard-version) for commit guidelines.
 
+### [1.9.1](https://github.com/Cubelrti/sm-crypto-v2/compare/v1.9.0...v1.9.1) (2024-07-09)
+
+
+### Bug Fixes
+
+* **asn1:** correct the implementation of the long version of L encoding in asn.1 ([55569c5](https://github.com/Cubelrti/sm-crypto-v2/commit/55569c55235c0a82525b142ea9a4f8a2669654ce))
+
 ## [1.9.0](https://github.com/Cubelrti/sm-crypto-v2/compare/v1.7.0...v1.9.0) (2023-12-27)
 
 
