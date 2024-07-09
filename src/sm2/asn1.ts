@@ -113,7 +113,13 @@ class DERSequence extends ASN1Object {
  */
 function getLenOfL(str: string, start: number) {
   if (+str[start + 2] < 8) return 1 // l 以0开头，则表示短格式，只占一个字节
-  return +str.substring(start + 2, start + 4) & 0x7f + 1 // 长格式，取第一个字节后7位作为长度真正占用字节数，再加上本身
+  // 长格式，取第一个字节后7位作为长度真正占用字节数，再加上本身
+  const encoded = str.slice(start + 2, start + 6);
+  const headHex = encoded.slice(0, 2);
+  const head = parseInt(headHex, 16);
+  const nHexLength = (head - 128) * 2;
+
+  return nHexLength;
 }
 
 /**
