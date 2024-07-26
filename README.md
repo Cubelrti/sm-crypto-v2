@@ -8,6 +8,8 @@
 
 参数支持 TypedArray，导出 esm/cjs。
 
+For WebAssembly-supported platform, see [sm-crypto-wasm](https://github.com/Cubelrti/sm-crypto-wasm) and its [Online Playground](https://cubelrti.github.io/sm-crypto-wasm/)
+
 ## 特性
 
 - ⚡ 基于 [`noble-curves` Abstract API](https://github.com/paulmillr/noble-curves#abstract-api) 重构 SM2，性能提升近4倍。详见 [noble-curves 文档](https://paulmillr.com/posts/noble-secp256k1-fast-ecc/) 
