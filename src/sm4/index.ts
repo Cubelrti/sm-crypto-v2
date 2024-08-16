@@ -309,14 +309,34 @@ export function sm4(inArray: Uint8Array | string, key: Uint8Array | string, cryp
   }
 }
 
-export function encrypt(inArray: Uint8Array | string, key: Uint8Array | string, options?: { output: 'array' } | SM4Options): Uint8Array
-export function encrypt(inArray: Uint8Array | string, key: Uint8Array | string, options?: { output: 'string' } | SM4Options): string
-export function encrypt(inArray: Uint8Array | string, key: Uint8Array | string, options: SM4Options = {}) {
+export function encrypt(
+  inArray: Uint8Array | string,
+  key: Uint8Array | string,
+  options?: { output: 'array' } & SM4Options
+): Uint8Array
+export function encrypt(
+  inArray: Uint8Array | string,
+  key: Uint8Array | string,
+  options?: { output: 'string' } & SM4Options
+): string
+export function encrypt(
+  inArray: Uint8Array | string,
+  key: Uint8Array | string,
+  options: SM4Options = {}
+) {
   return sm4(inArray, key, 1, options)
 }
 
-export function decrypt(inArray: Uint8Array | string, key: Uint8Array | string, options?: { output: 'array' } | SM4Options): Uint8Array
-export function decrypt(inArray: Uint8Array | string, key: Uint8Array | string, options?: { output: 'string' } | SM4Options): string
+export function decrypt(
+  inArray: Uint8Array | string,
+  key: Uint8Array | string,
+  options?: { output: 'array' } & SM4Options
+): Uint8Array
+export function decrypt(
+  inArray: Uint8Array | string,
+  key: Uint8Array | string,
+  options?: { output: 'string' } & SM4Options
+): string
 export function decrypt(inArray: Uint8Array | string, key: Uint8Array | string, options: SM4Options = {}) {
   return sm4(inArray, key, 0, options)
 }
