@@ -2,6 +2,13 @@
 
 All notable changes to this project will be documented in this file. See [standard-version](https://github.com/conventional-changelog/standard-version) for commit guidelines.
 
+### [1.9.3](https://github.com/Cubelrti/sm-crypto-v2/compare/v1.9.2...v1.9.3) (2024-10-10)
+
+
+### Bug Fixes
+
+* **sm2:** utf8 to hex [#15](https://github.com/Cubelrti/sm-crypto-v2/issues/15) ([16a714a](https://github.com/Cubelrti/sm-crypto-v2/commit/16a714ad8775381c21b814fab6b1d57c263b3c65))
+
 ### [1.9.2](https://github.com/Cubelrti/sm-crypto-v2/compare/v1.9.1...v1.9.2) (2024-08-16)
 
 
