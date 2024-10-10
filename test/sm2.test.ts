@@ -286,3 +286,24 @@ describe('sm2: precomputed public key', () => {
         expect(verifyResult).toBe(true)
     })
 })
+
+describe('sm2: chinese encoding', () => {
+    it('signature and verify correctly', (ctx) => {
+        let str = 'SM国密2'
+        let sigValueHex = sm2.doSignature(str, ctx.privateKey, {
+            hash: true,
+            der: true,
+        })
+        let verifyResult = sm2.doVerifySignature(str, sigValueHex, ctx.unCompressedPublicKey, {
+            der: true,
+            hash: true,
+        })
+        expect(verifyResult).toBe(true)
+        console.log({
+            str,
+            pk: ctx.unCompressedPublicKey,
+            sigValueHex,
+            verifyResult,
+        })
+    })
+})

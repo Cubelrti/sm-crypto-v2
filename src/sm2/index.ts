@@ -156,7 +156,6 @@ export function doSignature(msg: Uint8Array | string, privateKey: string, option
     pointPool, der, hash, publicKey, userId
   } = options
   let hashHex = typeof msg === 'string' ? utf8ToHex(msg) : arrayToHex(Array.from(msg))
-
   if (hash) {
     // sm3杂凑
     publicKey = publicKey || getPublicKeyFromPrivateKey(privateKey)

@@ -49,25 +49,8 @@ export function compressPublicKeyHex(s: string) {
  * utf8串转16进制串
  */
 export function utf8ToHex(input: string) {
-  input = decodeURIComponent(encodeURIComponent(input))
-
-  const length = input.length
-
-  // 转换到字数组
-  const words = new Uint32Array((length >>> 2) + 1)
-  for (let i = 0; i < length; i++) {
-    words[i >>> 2] |= (input.charCodeAt(i) & 0xff) << (24 - (i % 4) * 8)
-  }
-
-  // 转换到16进制
-  const hexChars: string[]= []
-  for (let i = 0; i < length; i++) {
-    const bite = (words[i >>> 2] >>> (24 - (i % 4) * 8)) & 0xff
-    hexChars.push((bite >>> 4).toString(16))
-    hexChars.push((bite & 0x0f).toString(16))
-  }
-
-  return hexChars.join('')
+  const bytes = utils.utf8ToBytes(input)
+  return utils.bytesToHex(bytes)
 }
 
 /**
