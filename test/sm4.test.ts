@@ -1,4 +1,6 @@
 import { sm4 } from '@/index'
+import { hexToArray } from '@/sm2'
+import { bytesToHex } from '@/sm3/utils'
 import { test, expect } from 'vitest'
 
 const msg = 'hello world! 我是 juneandgreen.'
@@ -76,4 +78,87 @@ test('sm4: encrypt a group with 1000000 times', () => {
 test('sm4: invalid padding', () => {
     expect(() => sm4.decrypt('a0b1aac2e6db928ddfc8a081a6661d0452b44e5720db106714ffc8cbee29bcf7d96b4d64bffd07553e6a2ee096523b7a', keyHexStr)).toThrow('padding is invalid')
     expect(() => sm4.decrypt('a0b1aac2e6db928ddfc8a081a6661d0452b44e5720db106714ffc8cbee29bcf7d96b4d64bffd07553e6a2ee096523b7f', ivHexStr)).toThrow('padding is invalid')
+})
+
+test('sm4: gcm', () => {
+    // Initialization Vector:   00001234567800000000ABCD
+    // Key:                     0123456789ABCDEFFEDCBA9876543210
+    // Plaintext:               AAAAAAAAAAAAAAAABBBBBBBBBBBBBBBB
+    //                          CCCCCCCCCCCCCCCCDDDDDDDDDDDDDDDD
+    //                          EEEEEEEEEEEEEEEEFFFFFFFFFFFFFFFF
+    //                          EEEEEEEEEEEEEEEEAAAAAAAAAAAAAAAA
+    // Associated Data:         FEEDFACEDEADBEEFFEEDFACEDEADBEEFABADDAD2
+    // CipherText:              17F399F08C67D5EE19D0DC9969C4BB7D
+    //                          5FD46FD3756489069157B282BB200735
+    //                          D82710CA5C22F0CCFA7CBF93D496AC15
+    //                          A56834CBCF98C397B4024A2691233B8D
+    // Authentication Tag:      83DE3541E4C2B58177E065A9BF7B62EC
+
+    const iv = '00001234567800000000abcd'
+    const key = '0123456789abcdeffedcba9876543210'
+    const plaintext = 'aaaaaaaaaaaaaaaabbbbbbbbbbbbbbbbccccccccccccccccddddddddddddddddeeeeeeeeeeeeeeeeffffffffffffffffeeeeeeeeeeeeeeeeaaaaaaaaaaaaaaaa'
+    const plaintextArray = hexToArray(plaintext)
+    const associatedData = 'feedfacedeadbeeffeedfacedeadbeefabaddad2'
+    const expectedCiphertext = '17f399f08c67d5ee19d0dc9969c4bb7d5fd46fd3756489069157b282bb200735d82710ca5c22f0ccfa7cbf93d496ac15a56834cbcf98c397b4024a2691233b8d'
+    const expectedAuthTag = '83de3541e4c2b58177e065a9bf7b62ec'
+    
+    // Test encryption
+    const encryptResult = sm4.encrypt(plaintextArray, key, {
+        mode: 'gcm',
+        iv,
+        associatedData,
+        output: 'string',
+    })
+    
+    // Check format with auth tag
+    expect(encryptResult.output + encryptResult.tag).toBe(expectedCiphertext + expectedAuthTag)
+
+
+    // return
+    // Test encryption with array output
+    const encryptArrayResult = sm4.encrypt(plaintextArray, key, {
+        mode: 'gcm',
+        iv,
+        associatedData,
+        output: 'array',
+        outputTag: true
+    })
+    expect(encryptArrayResult.output).toEqual(Uint8Array.from(Buffer.from(expectedCiphertext, 'hex')))
+    expect(encryptArrayResult.tag).toEqual(Uint8Array.from(Buffer.from(expectedAuthTag, 'hex')))
+    
+    // Test decryption
+    const decryptedText = sm4.decrypt(expectedCiphertext, key, {
+        mode: 'gcm',
+        iv,
+        associatedData,
+        tag: expectedAuthTag,
+        output: 'array'
+    })
+    expect(bytesToHex(decryptedText)).toBe(plaintext)
+    
+    // Test decryption with array input
+    const decryptedArray = sm4.decrypt(
+        Uint8Array.from(Buffer.from(expectedCiphertext, 'hex')),
+        key,
+        {
+            mode: 'gcm',
+            iv,
+            associatedData,
+            tag: Uint8Array.from(Buffer.from(expectedAuthTag, 'hex')),
+            output: 'array'
+        }
+    )
+    expect(decryptedArray).toEqual(plaintextArray)
+    
+    // Test tag verification failure
+    const invalidTag = '83de3541e4c2b58177e065a9bf7b62ed'
+    expect(() => {
+        sm4.decrypt(expectedCiphertext, key, {
+            mode: 'gcm',
+            iv,
+            associatedData,
+            tag: invalidTag,
+            output: 'string'
+        })
+    }).toThrow('authentication tag mismatch')
 })
