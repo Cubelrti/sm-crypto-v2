@@ -539,12 +539,12 @@ export interface GCMResult<T = Uint8Array | string> {
 export function encrypt(
   inArray: Uint8Array | string,
   key: Uint8Array | string,
-  options?: { mode: 'gcm', output: 'array' } & SM4Options
+  options: { mode: 'gcm', output: 'array' } & SM4Options
 ): GCMResult<Uint8Array>
 export function encrypt(
   inArray: Uint8Array | string,
   key: Uint8Array | string,
-  options?: { mode: 'gcm', output: 'string' } & SM4Options
+  options: { mode: 'gcm', output?: 'string' } & SM4Options
 ): GCMResult<string>
 export function encrypt(
   inArray: Uint8Array | string,
@@ -554,7 +554,7 @@ export function encrypt(
 export function encrypt(
   inArray: Uint8Array | string,
   key: Uint8Array | string,
-  options?: { output: 'string' } & SM4Options
+  options?: { output?: 'string' } & SM4Options
 ): string
 export function encrypt(
   inArray: Uint8Array | string,
@@ -572,7 +572,7 @@ export function decrypt(
 export function decrypt(
   inArray: Uint8Array | string,
   key: Uint8Array | string,
-  options?: { output: 'string' } & SM4Options
+  options?: { output?: 'string' } & SM4Options
 ): string
 export function decrypt(inArray: Uint8Array | string, key: Uint8Array | string, options: SM4Options = {}) {
   return sm4(inArray, key, 0, options)
