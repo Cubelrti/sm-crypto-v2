@@ -2,6 +2,13 @@
 
 All notable changes to this project will be documented in this file. See [standard-version](https://github.com/conventional-changelog/standard-version) for commit guidelines.
 
+## [1.10.0](https://github.com/Cubelrti/sm-crypto-v2/compare/v1.9.3...v1.10.0) (2025-04-14)
+
+
+### Features
+
+* **sm4:** support gcm mode for `sm4` ([2c6a0df](https://github.com/Cubelrti/sm-crypto-v2/commit/2c6a0df8d591d802fd4816c6b1824e20e0b23e31))
+
 ### [1.9.3](https://github.com/Cubelrti/sm-crypto-v2/compare/v1.9.2...v1.9.3) (2024-10-10)
 
 
