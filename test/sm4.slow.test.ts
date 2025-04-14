@@ -66,7 +66,7 @@ test('sm4: encrypt unicode string', () => {
 })
 
 test('sm4: encrypt a group with 1000000 times', () => {
-    let temp = input
+    let temp: Uint8Array = input
     for (let i = 0; i < 1000000; i++) {
         temp = sm4.encrypt(temp, key, {padding: 'none', output: 'array'}) as Uint8Array
     }

@@ -2,7 +2,8 @@ import { bytesToHex } from '@/sm3/utils'
 import { rotl } from '../sm2/sm3'
 import { arrayToHex, arrayToUtf8, hexToArray } from '../sm2/utils'
 import { utf8ToArray } from '../sm3'
-
+import { ghash } from '@noble/ciphers/_polyval'
+import { createView, setBigUint64 } from '@noble/ciphers/utils'
 /* eslint-disable no-bitwise, no-mixed-operators, complexity */
 const DECRYPT = 0
 const ROUND = 32
@@ -186,9 +187,174 @@ function sms4KeyExt(key: Uint8Array, roundKey: Uint32Array, cryptFlag: 0 | 1) {
 
 export interface SM4Options {
   padding?: 'pkcs#7' | 'pkcs#5' | 'none' | null
-  mode?: 'cbc' | 'ecb'
+  mode?: 'cbc' | 'ecb' | 'gcm'
   iv?: Uint8Array | string
   output?: 'string' | 'array'
+  associatedData?: Uint8Array | string
+  outputTag?: boolean
+  tag?: Uint8Array | string
+}
+
+// Helper function to convert data to Uint8Array
+function ensureUint8Array(data: Uint8Array | string, isHex = false): Uint8Array {
+  if (typeof data === 'string') {
+    return isHex ? hexToArray(data) : utf8ToArray(data);
+  }
+  return Uint8Array.from(data);
+}
+
+function incrementCounter(counter: Uint8Array): void {
+  for (let i = counter.length - 1; i >= 0; i--) {
+    counter[i]++;
+    if (counter[i] !== 0) break;
+  }
+}
+
+// SM4-GCM implementation
+function sm4Gcm(
+  inArray: Uint8Array,
+  key: Uint8Array,
+  ivArray: Uint8Array,
+  aadArray: Uint8Array,
+  cryptFlag: 0 | 1,
+  tagArray?: Uint8Array
+): { output: Uint8Array, tag?: Uint8Array } {
+  const tagLength = 16;
+  
+  function deriveKeys() {
+    // Generate round keys
+    const roundKey = new Uint32Array(ROUND);
+    sms4KeyExt(key, roundKey, 1); // Always use encryption round keys for GCM
+    
+    // Initialize H by encrypting all zeros
+    const authKey = new Uint8Array(16).fill(0);
+    const h = new Uint8Array(16);
+    sms4Crypt(authKey, h, roundKey);
+    
+    // Process J0 (initial counter value)
+    let j0: Uint8Array;
+    if (ivArray.length === 12) {
+      j0 = new Uint8Array(16);
+      j0.set(ivArray, 0);
+      j0[15] = 1;
+    } else {
+      // If IV is not 96 bits, compute J0 using GHASH
+      const g = ghash.create(h);
+      g.update(ivArray);
+      
+      const lenIv = new Uint8Array(16);
+      const view = createView(lenIv);
+      setBigUint64(view, 8, BigInt(ivArray.length * 8), false);
+      g.update(lenIv);
+      
+      j0 = g.digest();
+    }
+    
+    // Create counter starting with j0 + 1 for encryption
+    const counter = new Uint8Array(j0);
+    incrementCounter(counter);
+    
+    // Compute tag mask by encrypting j0
+    const tagMask = new Uint8Array(16);
+    sms4Crypt(j0, tagMask, roundKey);
+    
+    return { roundKey, h, j0, counter, tagMask };
+  }
+  
+  // Compute authentication tag
+  function computeTag(h: Uint8Array, data: Uint8Array) {
+    const aadLength = aadArray.length;
+    const dataLength = data.length;
+    
+    // Create GHASH instance with derived H
+    const g = ghash.create(h);
+    
+    // Process AAD if present
+    if (aadLength > 0) {
+      g.update(aadArray);
+    }
+    
+    // Process ciphertext/plaintext
+    g.update(data);
+    
+    // Process lengths
+    const lenBlock = new Uint8Array(16);
+    const view = createView(lenBlock);
+    setBigUint64(view, 0, BigInt(aadLength * 8), false);
+    setBigUint64(view, 8, BigInt(dataLength * 8), false);
+    g.update(lenBlock);
+    
+    // Get the GHASH result
+    return g.digest();
+  }
+  
+  // Start the actual GCM processing
+  const { roundKey, h, j0, counter, tagMask } = deriveKeys();
+  
+  // For decryption, verify tag first
+  if (cryptFlag === DECRYPT && tagArray) {
+    const calculatedTag = computeTag(h, inArray);
+    
+    // XOR with tag mask
+    for (let i = 0; i < 16; i++) {
+      calculatedTag[i] ^= tagMask[i];
+    }
+    
+    // Constant time comparison to prevent timing attacks
+    let tagMatch = 0;
+    for (let i = 0; i < 16; i++) {
+      tagMatch |= calculatedTag[i] ^ tagArray[i];
+    }
+    
+    if (tagMatch !== 0) {
+      throw new Error('authentication tag mismatch');
+    }
+  }
+  
+  // Perform encryption/decryption in CTR mode
+  const outArray = new Uint8Array(inArray.length);
+  let point = 0;
+  let restLen = inArray.length;
+  
+  while (restLen >= BLOCK) {
+    // Encrypt counter
+    const blockOut = new Uint8Array(BLOCK);
+    sms4Crypt(counter, blockOut, roundKey);
+    
+    // XOR with input
+    for (let i = 0; i < BLOCK && i < restLen; i++) {
+      outArray[point + i] = inArray[point + i] ^ blockOut[i];
+    }
+    
+    // Increment counter
+    incrementCounter(counter);
+    point += BLOCK;
+    restLen -= BLOCK;
+  }
+  
+  // Process any remaining bytes
+  if (restLen > 0) {
+    const blockOut = new Uint8Array(BLOCK);
+    sms4Crypt(counter, blockOut, roundKey);
+    
+    for (let i = 0; i < restLen; i++) {
+      outArray[point + i] = inArray[point + i] ^ blockOut[i];
+    }
+  }
+  
+  // For encryption, calculate and return tag
+  if (cryptFlag !== DECRYPT) {
+    const calculatedTag = computeTag(h, outArray);
+    
+    // XOR with tag mask
+    for (let i = 0; i < 16; i++) {
+      calculatedTag[i] ^= tagMask[i];
+    }
+    
+    return { output: outArray, tag: calculatedTag };
+  }
+  
+  return { output: outArray };
 }
 
 const blockOutput = new Uint8Array(16)
@@ -197,8 +363,64 @@ export function sm4(inArray: Uint8Array | string, key: Uint8Array | string, cryp
     padding = 'pkcs#7',
     mode,
     iv = new Uint8Array(16),
-    output
+    output,
+    associatedData,
+    outputTag,
+    tag
   } = options
+  
+  // Handle GCM mode
+  if (mode === 'gcm') {
+    const keyArray = typeof key === 'string' ? hexToArray(key) : Uint8Array.from(key);
+    const ivArray = typeof iv === 'string' ? hexToArray(iv) : Uint8Array.from(iv);
+    const aadArray = associatedData 
+      ? (typeof associatedData === 'string' ? hexToArray(associatedData) : Uint8Array.from(associatedData))
+      : new Uint8Array(0);
+    
+    let inputArray: Uint8Array;
+    if (typeof inArray === 'string') {
+      if (cryptFlag !== DECRYPT) {
+        // For encryption, input is UTF-8 string
+        inputArray = utf8ToArray(inArray);
+      } else {
+        // For decryption, input is hex string
+        inputArray = hexToArray(inArray);
+      }
+    } else {
+      inputArray = Uint8Array.from(inArray);
+    }
+    
+    const tagArray = tag 
+      ? (typeof tag === 'string' ? hexToArray(tag) : Uint8Array.from(tag))
+      : undefined;
+    
+    const result = sm4Gcm(inputArray, keyArray, ivArray, aadArray, cryptFlag, tagArray);
+    // gcm tag is 
+    if (output === 'array') {
+      if (outputTag && cryptFlag !== DECRYPT) {
+        return result
+      }
+      return result.output;
+    } else {
+      if (outputTag && cryptFlag !== DECRYPT) {
+        return { 
+          output: bytesToHex(result.output), 
+          tag: result.tag ? bytesToHex(result.tag) : undefined 
+        };
+      }
+      
+      if (cryptFlag !== DECRYPT) {
+        return {
+          output: bytesToHex(result.output),
+          tag: result.tag ? bytesToHex(result.tag) : undefined
+        };
+      } else {
+        return arrayToUtf8(result.output);
+      }
+    }
+  }
+
+  // Existing code for non-GCM modes
   if (mode === 'cbc') {
     // CBC 模式，默认走 ECB 模式
     if (typeof iv === 'string') iv = hexToArray(iv)
@@ -309,6 +531,21 @@ export function sm4(inArray: Uint8Array | string, key: Uint8Array | string, cryp
   }
 }
 
+export interface GCMResult<T = Uint8Array | string> {
+  output: T;
+  tag?: T;
+}
+
+export function encrypt(
+  inArray: Uint8Array | string,
+  key: Uint8Array | string,
+  options: { mode: 'gcm', output: 'array' } & SM4Options
+): GCMResult<Uint8Array>
+export function encrypt(
+  inArray: Uint8Array | string,
+  key: Uint8Array | string,
+  options: { mode: 'gcm', output?: 'string' } & SM4Options
+): GCMResult<string>
 export function encrypt(
   inArray: Uint8Array | string,
   key: Uint8Array | string,
@@ -317,13 +554,13 @@ export function encrypt(
 export function encrypt(
   inArray: Uint8Array | string,
   key: Uint8Array | string,
-  options?: { output: 'string' } & SM4Options
+  options?: { output?: 'string' } & SM4Options
 ): string
 export function encrypt(
   inArray: Uint8Array | string,
   key: Uint8Array | string,
   options: SM4Options = {}
-) {
+): Uint8Array | string | GCMResult {
   return sm4(inArray, key, 1, options)
 }
 
@@ -335,7 +572,7 @@ export function decrypt(
 export function decrypt(
   inArray: Uint8Array | string,
   key: Uint8Array | string,
-  options?: { output: 'string' } & SM4Options
+  options?: { output?: 'string' } & SM4Options
 ): string
 export function decrypt(inArray: Uint8Array | string, key: Uint8Array | string, options: SM4Options = {}) {
   return sm4(inArray, key, 0, options)
