@@ -57,7 +57,7 @@ export function doEncrypt(msg: string | Uint8Array, publicKey: string | ProjPoin
 function xorCipherStream(x2: Uint8Array, y2: Uint8Array, msg: Uint8Array) {
   let ct = 1
   let offset = 0
-  let t = EmptyArray
+  let t: Uint8Array = EmptyArray
   const ctShift = new Uint8Array(4)
   const nextT = () => {
     // (1) Hai = hash(z || ct)
@@ -90,13 +90,14 @@ export function doDecrypt(encryptData: string, privateKey: string, cipherMode?: 
   asn1?: boolean
 }): Uint8Array
 export function doDecrypt(encryptData: string, privateKey: string, cipherMode?: number, options?: {
-  output: 'string',
+  output?: 'string',
   asn1?: boolean
 }): string
-export function doDecrypt(encryptData: string, privateKey: string, cipherMode = 1, {
-  output = 'string',
-  asn1 = false,
-} = {}) {
+export function doDecrypt(encryptData: string, privateKey: string, cipherMode = 1, options?: {
+  output?: 'string' | 'array',
+  asn1?: boolean
+}): ArrayLike<any> | string {
+  const { output = 'string', asn1 = false } = options || {};
   const privateKeyInteger = utils.hexToNumber(privateKey)
 
   let c1: ProjPointType<bigint>
