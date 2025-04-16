@@ -19,6 +19,7 @@ For WebAssembly-supported platform, see [sm-crypto-wasm](https://github.com/Cube
 - 🎲 自动选择最优的安全随机数实现，避免使用 `Math.random()` 和 `Date.now()` 进行模拟
 - 📚 同时导出 ES Module 和 CommonJS 两种格式，可按需使用
 - 🔑 提供 SM2 密钥交换 API
+- 🔒 提供 SM4 GCM 模式加密解密能力
 - 🎒 未压缩大小 34kb，压缩后 17kb
 
 ## 安装
@@ -171,6 +172,13 @@ let encryptData = sm4.encrypt(msg, key) // 加密，默认输出 16 进制字符
 let encryptData = sm4.encrypt(msg, key, {padding: 'none'}) // 加密，不使用 padding
 let encryptData = sm4.encrypt(msg, key, {padding: 'none', output: 'array'}) // 加密，不使用 padding，输出为字节数组
 let encryptData = sm4.encrypt(msg, key, {mode: 'cbc', iv: 'fedcba98765432100123456789abcdef'}) // 加密，cbc 模式
+let encryptData = sm4.encrypt(msg, key, {
+    mode: 'gcm', // gcm 模式，必填 iv, 可选 aad
+    iv,
+    associatedData,
+    output: 'string',
+}) // 输出格式 { output: T; tag?: T; } T 为 string/Uint8Array
+
 ```
 
 ### 解密
@@ -184,6 +192,13 @@ let decryptData = sm4.decrypt(encryptData, key) // 解密，默认输出 utf8 �
 let decryptData = sm4.decrypt(encryptData, key, {padding: 'none'}) // 解密，不使用 padding
 let decryptData = sm4.decrypt(encryptData, key, {padding: 'none', output: 'array'}) // 解密，不使用 padding，输出为字节数组
 let decryptData = sm4.decrypt(encryptData, key, {mode: 'cbc', iv: 'fedcba98765432100123456789abcdef'}) // 解密，cbc 模式
+let decryptData = sm4.decrypt(encryptData, key, {
+    mode: 'gcm', // gcm 模式必填 iv tag, 可选 aad
+    iv,
+    associatedData,
+    tag: expectedAuthTag,
+    output: 'array'
+}) // 输出格式 string/Uint8Array
 ```
 
 ### 密钥交换
