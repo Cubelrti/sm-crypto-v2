@@ -177,6 +177,7 @@ let encryptData = sm4.encrypt(msg, key, {
     iv,
     associatedData,
     output: 'string',
+    outputTag: true, // 输出 aead tag，如果为 false 则不输出
 }) // 输出格式 { output: T; tag?: T; } T 为 string/Uint8Array
 
 ```
