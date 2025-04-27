@@ -2,6 +2,14 @@
 
 All notable changes to this project will be documented in this file. See [standard-version](https://github.com/conventional-changelog/standard-version) for commit guidelines.
 
+### [1.10.1](https://github.com/Cubelrti/sm-crypto-v2/compare/v1.10.0...v1.10.1) (2025-04-27)
+
+
+### Bug Fixes
+
+* miniprogram build issue ([5e8ece4](https://github.com/Cubelrti/sm-crypto-v2/commit/5e8ece41dab69fc449675f9d46dfd25163538a78))
+* **sm2:** typing issue ([f368a72](https://github.com/Cubelrti/sm-crypto-v2/commit/f368a72cc354d0ec9601dda8cbd2590eb9e6c144))
+
 ## [1.10.0](https://github.com/Cubelrti/sm-crypto-v2/compare/v1.9.3...v1.10.0) (2025-04-14)
 
 
