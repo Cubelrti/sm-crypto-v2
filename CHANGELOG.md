@@ -2,6 +2,13 @@
 
 All notable changes to this project will be documented in this file. See [standard-version](https://github.com/conventional-changelog/standard-version) for commit guidelines.
 
+## [1.11.0](https://github.com/Cubelrti/sm-crypto-v2/compare/v1.10.1...v1.11.0) (2025-04-28)
+
+
+### Features
+
+* **sm3, kx:** expose kdf in sm3, added test case for parity ([f0091ca](https://github.com/Cubelrti/sm-crypto-v2/commit/f0091ca4a58a3369a83f274023268dfe2bda2794))
+
 ### [1.10.1](https://github.com/Cubelrti/sm-crypto-v2/compare/v1.10.0...v1.10.1) (2025-04-27)
 
 
