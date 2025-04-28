@@ -3,9 +3,9 @@ import { test, expect, describe, it } from 'vitest'
 import { readFileSync } from 'node:fs'
 import { join } from 'node:path'
 import { sm3 } from '@/sm3'
-// import { sm3 as sm3 } from '@/sm2/sm3O'
 import { bytesToHex } from '@/sm3/utils'
 import { concatBytes } from '@noble/curves/abstract/utils'
+import { kdf } from '@/index'
 test('sm3: must match the result', () => {
     // 单字节
     expect(sm3('abc')).toBe('66c7f0f462eeedd9d1f2d46bdc10e4e24167c4875cf2f7a2297da02b8f4ba8e0')
@@ -72,4 +72,10 @@ test('sm3: hmac', () => {
     expect(sm3(bytes128, {
         key: bytes128,
     })).toBe('d374f8adb0e9d1f12de94c1406fe8b2d53f84129e033f0d269400de8e8e7ca1a')
+})
+
+test('sm3: kdf', () => {
+    const input = new Uint8Array(32)
+    const out = kdf(input, 16)
+    console.log('sm3KDF', bytesToHex(out))
 })

@@ -150,13 +150,16 @@ let verifyResult4 = sm2.doVerifySignature(msg, sigValueHex4, precomputedPublicKe
 ## sm3
 
 ```js
-import { sm3 } from 'sm-crypto-v2'
+import { sm3, kdf } from 'sm-crypto-v2'
 let hashData = sm3('abc') // 杂凑
 
 // hmac
 hashData = sm3('abc', {
     key: 'daac25c1512fe50f79b0e4526b93f5c0e1460cef40b6dd44af13caec62e8c60e0d885f3c6d6fb51e530889e6fd4ac743a6d332e68a0f2a3923f42585dceb93e9', // 要求为 16 进制串或字节数组
 })
+
+// kdf，注意这是 GM/T 0003-2012 中的 SM3 KDF（密钥派生函数），不是 RFC5869 的 HKDF
+kdfData = kdf('abc', 32 /* 输出长度 */)
 ```
 
 ## sm4
