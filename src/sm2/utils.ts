@@ -4,6 +4,7 @@ import * as utils from '@noble/curves/abstract/utils';
 import { sm2Curve, sm2Fp } from './ec';
 import { mod } from '@noble/curves/abstract/modular';
 import { ONE, TWO, ZERO } from './bn';
+import { strToU8 } from '@/sm3/utils'
 
 export interface KeyPair {
   privateKey: string
@@ -49,7 +50,7 @@ export function compressPublicKeyHex(s: string) {
  * utf8串转16进制串
  */
 export function utf8ToHex(input: string) {
-  const bytes = utils.utf8ToBytes(input)
+  const bytes = strToU8(input)
   return utils.bytesToHex(bytes)
 }
 
