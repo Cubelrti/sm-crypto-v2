@@ -2,6 +2,13 @@
 
 All notable changes to this project will be documented in this file. See [standard-version](https://github.com/conventional-changelog/standard-version) for commit guidelines.
 
+## [1.12.0](https://github.com/Cubelrti/sm-crypto-v2/compare/v1.11.0...v1.12.0) (2025-06-05)
+
+
+### Features
+
+* **utils:** ensure sm2 runs in environment don't have TextEncoder ([6b74b8d](https://github.com/Cubelrti/sm-crypto-v2/commit/6b74b8d4df3ead8e2c01587e3c13cdbbf9a27701))
+
 ## [1.11.0](https://github.com/Cubelrti/sm-crypto-v2/compare/v1.10.1...v1.11.0) (2025-04-28)
 
 
