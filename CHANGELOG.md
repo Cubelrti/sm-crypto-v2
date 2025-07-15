@@ -2,6 +2,13 @@
 
 All notable changes to this project will be documented in this file. See [standard-version](https://github.com/conventional-changelog/standard-version) for commit guidelines.
 
+## [1.13.0](https://github.com/Cubelrti/sm-crypto-v2/compare/v1.12.0...v1.13.0) (2025-07-15)
+
+
+### Features
+
+* downgrade to es2020 target ([3058285](https://github.com/Cubelrti/sm-crypto-v2/commit/305828570dc15fd686d04f3d85c37b978e8893c8))
+
 ## [1.12.0](https://github.com/Cubelrti/sm-crypto-v2/compare/v1.11.0...v1.12.0) (2025-06-05)
 
 
