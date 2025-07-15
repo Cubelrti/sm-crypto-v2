@@ -9,9 +9,9 @@ export default defineConfig({
   // will be stripped if minify.
   minify: false,
   format: ['esm', 'cjs'],
-  target: 'esnext',
+  target: 'es2020',
   tsconfig: 'tsconfig.json',
   esbuildOptions(options) {
-    options.define.__BUILD_TS__ = Date.now().toString();
-  }
-});
+    options.define.__BUILD_TS__ = Date.now().toString()
+  },
+})
