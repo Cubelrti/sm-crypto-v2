@@ -13,6 +13,9 @@ export * from './utils'
 export { initRNGPool } from './rng'
 export { calculateSharedKey } from './kx'
 
+const { getSharedSecret } = sm2Curve
+export { getSharedSecret as ecdh }
+
 function xorCipherStream(x2: Uint8Array, y2: Uint8Array, msg: Uint8Array) {
   const stream = kdf(utils.concatBytes(x2, y2), msg.length)
   

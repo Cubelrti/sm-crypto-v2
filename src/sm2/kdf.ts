@@ -9,10 +9,16 @@ import { utf8ToArray } from '../sm3';
  * @param keylen Desired key length in bytes
  * @returns Derived key as Uint8Array
  */
-export function kdf(z: string | Uint8Array, keylen: number) {
+export function kdf(
+  z: string | Uint8Array,
+  keylen: number,
+  iv?: string | Uint8Array
+) {
   // Convert string input to Uint8Array if needed
-  z = typeof z === 'string' ? utf8ToArray(z) : z;
-  
+  z = typeof z === 'string' ? utf8ToArray(z) : z
+  const IV =
+    iv == null ? EmptyArray : typeof iv === 'string' ? utf8ToArray(iv) : iv
+
   let msg = new Uint8Array(keylen)
   let ct = 1
   let offset = 0
@@ -21,11 +27,11 @@ export function kdf(z: string | Uint8Array, keylen: number) {
   const nextT = () => {
     // (1) Hai = hash(z || ct)
     // (2) ct++
-    ctShift[0] = ct >> 24 & 0x00ff
-    ctShift[1] = ct >> 16 & 0x00ff
-    ctShift[2] = ct >> 8 & 0x00ff
+    ctShift[0] = (ct >> 24) & 0x00ff
+    ctShift[1] = (ct >> 16) & 0x00ff
+    ctShift[2] = (ct >> 8) & 0x00ff
     ctShift[3] = ct & 0x00ff
-    t = sm3(utils.concatBytes(z, ctShift))
+    t = sm3(utils.concatBytes(z, ctShift, IV))
     ct++
     offset = 0
   }
@@ -40,4 +46,3 @@ export function kdf(z: string | Uint8Array, keylen: number) {
   }
   return msg
 }
-
