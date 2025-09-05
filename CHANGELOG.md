@@ -2,6 +2,13 @@
 
 All notable changes to this project will be documented in this file. See [standard-version](https://github.com/conventional-changelog/standard-version) for commit guidelines.
 
+## [1.14.0](https://github.com/Cubelrti/sm-crypto-v2/compare/v1.13.0...v1.14.0) (2025-09-05)
+
+
+### Features
+
+* **sm2:** expose ecdh interface and test cases ([68af176](https://github.com/Cubelrti/sm-crypto-v2/commit/68af176fd4013ea0e3165ad31c21f9cae590fcf7))
+
 ## [1.13.0](https://github.com/Cubelrti/sm-crypto-v2/compare/v1.12.0...v1.13.0) (2025-07-15)
 
 

@@ -1,6 +1,6 @@
 {
   "name": "sm-crypto-v2",
-  "version": "1.13.0",
+  "version": "1.14.0",
   "description": "sm-crypto-v2",
   "main": "dist/index.js",
   "module": "dist/index.mjs",
