@@ -2,6 +2,13 @@
 
 All notable changes to this project will be documented in this file. See [standard-version](https://github.com/conventional-changelog/standard-version) for commit guidelines.
 
+## [1.15.0](https://github.com/Cubelrti/sm-crypto-v2/compare/v1.14.0...v1.15.0) (2025-10-11)
+
+
+### Features
+
+* support umd ([1fe0ddb](https://github.com/Cubelrti/sm-crypto-v2/commit/1fe0ddb4874ea7ade10beff7e43b7bb5f3335c71))
+
 ## [1.14.0](https://github.com/Cubelrti/sm-crypto-v2/compare/v1.13.0...v1.14.0) (2025-09-05)
 
 
