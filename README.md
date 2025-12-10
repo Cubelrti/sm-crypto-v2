@@ -147,6 +147,52 @@ let verifyResult4 = sm2.doVerifySignature(msg, sigValueHex4, precomputedPublicKe
 
 ```
 
+### ECDH 密钥协商
+
+```js
+import { sm2 } from 'sm-crypto-v2'
+
+const keyPairA = sm2.generateKeyPairHex() // A 的密钥对
+const keyPairB = sm2.generateKeyPairHex() // B 的密钥对
+
+// A 使用自己的私钥和 B 的公钥计算共享密钥
+const sharedSecretA = sm2.ecdh(keyPairA.privateKey, keyPairB.publicKey)
+
+// B 使用自己的私钥和 A 的公钥计算共享密钥
+const sharedSecretB = sm2.ecdh(keyPairB.privateKey, keyPairA.publicKey)
+
+// sharedSecretA === sharedSecretB => true
+```
+
+> 注意：`sm2.ecdh` 是简单的椭圆曲线 Diffie-Hellman 密钥协商，适用于无长期公钥场景，没有不可抵赖性。如需更复杂的密钥交换（带临时密钥对和身份信息），请使用下面的 `sm2.calculateSharedKey`（国密标准）。
+
+
+### 密钥交换
+
+```js
+import { sm2 } from 'sm-crypto-v2'
+
+const keyPairA = sm2.generateKeyPairHex() // A 的秘钥对
+const keyPairB = sm2.generateKeyPairHex() // B 的秘钥对
+const ephemeralKeypairA = sm2.generateKeyPairHex() // A 的临时秘钥对
+const ephemeralKeypairB = sm2.generateKeyPairHex() // B 的临时秘钥对
+
+// 无身份的密钥交换
+// A 所需参数：A 的秘钥对，A 的临时秘钥对，B 的公钥，B 的临时秘钥公钥，长度，是否为接收方（默认为 false）
+const sharedKeyFromA = sm2.calculateSharedKey(keyPairA, ephemeralKeypairA, keyPairB.publicKey, ephemeralKeypairB.publicKey, 233)
+// B 所需参数：B 的秘钥对，B 的临时秘钥对，A 的公钥，A 的临时秘钥公钥，长度，是否为接收方（默认为 false）
+const sharedKeyFromB = sm2.calculateSharedKey(keyPairB, ephemeralKeypairB, keyPairA.publicKey, ephemeralKeypairA.publicKey, 233, true)
+
+// 带身份的密钥交换
+// A 所需参数：A 的秘钥对，A 的临时秘钥对，B 的公钥，B 的临时秘钥公钥，长度，是否为接收方（默认为 false），A 的身份，B 的身份
+const sharedKeyFromA = sm2.calculateSharedKey(keyPairA, ephemeralKeypairA, keyPairB.publicKey, ephemeralKeypairB.publicKey, 233, false, 'alice@yahoo.com', 'bob@yahoo.com')
+// B 所需参数：B 的秘钥对，B 的临时秘钥对，A 的公钥，A 的临时秘钥公钥，长度，是否为接收方（默认为 false），B 的身份，A 的身份
+const sharedKeyFromB = sm2.calculateSharedKey(keyPairB, ephemeralKeypairB, keyPairA.publicKey, ephemeralKeypairA.publicKey, 233, true, 'bob@yahoo.com', 'alice@yahoo.com')
+
+// expect(sharedKeyFromA).toEqual(sharedKeyFromB) => true
+```
+
+
 ## sm3
 
 ```js
@@ -161,6 +207,21 @@ hashData = sm3('abc', {
 // kdf，注意这是 GM/T 0003-2012 中的 SM3 KDF（密钥派生函数），不是 RFC5869 的 HKDF
 kdfData = kdf('abc', 32 /* 输出长度 */)
 ```
+
+### HKDF (基于 SM3)
+
+```js
+import { hkdf } from 'sm-crypto-v2'
+
+const ikm = 'input keying material' // 输入密钥材料，可以为字符串或字节数组
+const salt = 'random salt' // 可选，盐值
+const info = 'context info' // 可选，上下文信息
+const length = 32 // 输出长度（字节）
+
+const derivedKey = hkdf(ikm, salt, info, length) // 返回 Uint8Array
+```
+
+> 注意：这是 RFC 5869 定义的 HKDF，使用 SM3 作为底层哈希函数，与上面的 `kdf` 不同。
 
 ## sm4
 
@@ -203,31 +264,6 @@ let decryptData = sm4.decrypt(encryptData, key, {
     tag: expectedAuthTag,
     output: 'array'
 }) // 输出格式 string/Uint8Array
-```
-
-### 密钥交换
-
-```js
-import { sm2 } from 'sm-crypto-v2'
-
-const keyPairA = sm2.generateKeyPairHex() // A 的秘钥对
-const keyPairB = sm2.generateKeyPairHex() // B 的秘钥对
-const ephemeralKeypairA = sm2.generateKeyPairHex() // A 的临时秘钥对
-const ephemeralKeypairB = sm2.generateKeyPairHex() // B 的临时秘钥对
-
-// 无身份的密钥交换
-// A 所需参数：A 的秘钥对，A 的临时秘钥对，B 的公钥，B 的临时秘钥公钥，长度，是否为接收方（默认为 false）
-const sharedKeyFromA = sm2.calculateSharedKey(keyPairA, ephemeralKeypairA, keyPairB.publicKey, ephemeralKeypairB.publicKey, 233)
-// B 所需参数：B 的秘钥对，B 的临时秘钥对，A 的公钥，A 的临时秘钥公钥，长度，是否为接收方（默认为 false）
-const sharedKeyFromB = sm2.calculateSharedKey(keyPairB, ephemeralKeypairB, keyPairA.publicKey, ephemeralKeypairA.publicKey, 233, true)
-
-// 带身份的密钥交换
-// A 所需参数：A 的秘钥对，A 的临时秘钥对，B 的公钥，B 的临时秘钥公钥，长度，是否为接收方（默认为 false），A 的身份，B 的身份
-const sharedKeyFromA = sm2.calculateSharedKey(keyPairA, ephemeralKeypairA, keyPairB.publicKey, ephemeralKeypairB.publicKey, 233, false, 'alice@yahoo.com', 'bob@yahoo.com')
-// B 所需参数：B 的秘钥对，B 的临时秘钥对，A 的公钥，A 的临时秘钥公钥，长度，是否为接收方（默认为 false），B 的身份，A 的身份
-const sharedKeyFromB = sm2.calculateSharedKey(keyPairB, ephemeralKeypairB, keyPairA.publicKey, ephemeralKeypairA.publicKey, 233, true, 'bob@yahoo.com', 'alice@yahoo.com')
-
-// expect(sharedKeyFromA).toEqual(sharedKeyFromB) => true
 ```
 
 ## 其他实现
