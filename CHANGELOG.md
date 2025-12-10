@@ -2,6 +2,13 @@
 
 All notable changes to this project will be documented in this file. See [standard-version](https://github.com/conventional-changelog/standard-version) for commit guidelines.
 
+### [1.15.1](https://github.com/Cubelrti/sm-crypto-v2/compare/v1.15.0...v1.15.1) (2025-12-10)
+
+
+### Bug Fixes
+
+* **sm2:** correct nHexLength calculation in ASN.1 encoding ([0d6ba36](https://github.com/Cubelrti/sm-crypto-v2/commit/0d6ba36ce3f8269f63a1fbfd3d862d2b0e5d7fd4))
+
 ## [1.15.0](https://github.com/Cubelrti/sm-crypto-v2/compare/v1.14.0...v1.15.0) (2025-10-11)
 
 
