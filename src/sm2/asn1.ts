@@ -117,7 +117,7 @@ function getLenOfL(str: string, start: number) {
   const encoded = str.slice(start + 2, start + 6);
   const headHex = encoded.slice(0, 2);
   const head = parseInt(headHex, 16);
-  const nHexLength = (head - 128) * 2;
+  const nHexLength = 1 + (head - 128);
 
   return nHexLength;
 }
