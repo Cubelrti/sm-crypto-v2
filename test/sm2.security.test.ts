@@ -16,20 +16,22 @@ function pointPool() {
   }]
 }
 
-describe('SM2 standard signatures and upstream compatibility', () => {
+describe('SM2 standard defaults and legacy interoperability', () => {
   it('signs and verifies the standard vector with explicit hash:true', () => {
     expect(sm2.doSignature(message, privateKey, { pointPool: pointPool(), hash: true })).toBe(signature)
     expect(sm2.doVerifySignature(message, signature, publicKey, { hash: true })).toBe(true)
     expect(sm2.doVerifySignature(message, signature, publicKey, { hash: false })).toBe(false)
-    expect(sm2.doVerifySignature(message, signature, publicKey)).toBe(false)
+    expect(sm2.doVerifySignature(message, signature, publicKey)).toBe(true)
   })
 
-  it('preserves the historical default and explicit hash:false results', () => {
-    for (const options of [{}, { hash: undefined }, { hash: false }]) {
-      expect(sm2.doSignature(message, privateKey, { ...options, pointPool: pointPool() })).toBe(legacySignature)
-      expect(sm2.doVerifySignature(message, legacySignature, publicKey, options)).toBe(true)
+  it('uses standard hashing for omitted and undefined hash options', () => {
+    for (const options of [{}, { hash: undefined }]) {
+      expect(sm2.doSignature(message, privateKey, { ...options, pointPool: pointPool() })).toBe(signature)
+      expect(sm2.doVerifySignature(message, signature, publicKey, options)).toBe(true)
+      expect(sm2.doVerifySignature(message, legacySignature, publicKey, options)).toBe(false)
     }
-    expect(sm2.doVerifySignature(message, legacySignature, publicKey, { hash: true })).toBe(false)
+    expect(sm2.doSignature(message, privateKey, { hash: false, pointPool: pointPool() })).toBe(legacySignature)
+    expect(sm2.doVerifySignature(message, legacySignature, publicKey, { hash: false })).toBe(true)
   })
 
   it('supports standard signatures with byte arrays, DER and compressed public keys', () => {
@@ -40,26 +42,26 @@ describe('SM2 standard signatures and upstream compatibility', () => {
     expect(sm2.doVerifySignature(bytes, der, compressed, { der: true, hash: true })).toBe(true)
   })
 
-  it('binds hash:true signatures to the message and user identity', () => {
-    expect(sm2.doVerifySignature('different message', signature, publicKey, { hash: true })).toBe(false)
-    expect(sm2.doVerifySignature(message, signature, publicKey, { userId: 'another user', hash: true })).toBe(false)
-    const signed = sm2.doSignature(message, privateKey, { userId: 'alice', hash: true })
-    expect(sm2.doVerifySignature(message, signed, publicKey, { userId: 'alice', hash: true })).toBe(true)
-    expect(sm2.doVerifySignature(message, signed, publicKey, { hash: true })).toBe(false)
+  it('binds default signatures to the message and user identity', () => {
+    expect(sm2.doVerifySignature('different message', signature, publicKey)).toBe(false)
+    expect(sm2.doVerifySignature(message, signature, publicKey, { userId: 'another user' })).toBe(false)
+    const signed = sm2.doSignature(message, privateKey, { userId: 'alice' })
+    expect(sm2.doVerifySignature(message, signed, publicKey, { userId: 'alice' })).toBe(true)
+    expect(sm2.doVerifySignature(message, signed, publicKey)).toBe(false)
   })
 
-  it('distinguishes messages with leading zero bytes when hash:true', () => {
+  it('distinguishes messages with leading zero bytes by default', () => {
     const original = Uint8Array.of(1)
     const changed = Uint8Array.of(0, 1)
-    const signed = sm2.doSignature(original, privateKey, { hash: true })
-    expect(sm2.doVerifySignature(original, signed, publicKey, { hash: true })).toBe(true)
-    expect(sm2.doVerifySignature(changed, signed, publicKey, { hash: true })).toBe(false)
+    const signed = sm2.doSignature(original, privateKey)
+    expect(sm2.doVerifySignature(original, signed, publicKey)).toBe(true)
+    expect(sm2.doVerifySignature(changed, signed, publicKey)).toBe(false)
   })
 
-  it('supports empty messages when hash:true', () => {
-    const signed = sm2.doSignature('', privateKey, { hash: true })
-    expect(sm2.doVerifySignature('', signed, publicKey, { hash: true })).toBe(true)
-    expect(sm2.doVerifySignature(new Uint8Array(), signed, publicKey, { hash: true })).toBe(true)
+  it('supports empty messages by default', () => {
+    const signed = sm2.doSignature('', privateKey)
+    expect(sm2.doVerifySignature('', signed, publicKey)).toBe(true)
+    expect(sm2.doVerifySignature(new Uint8Array(), signed, publicKey)).toBe(true)
   })
 
   it('preserves explicit hash:false for precomputed digests and legacy signatures', () => {
@@ -68,6 +70,6 @@ describe('SM2 standard signatures and upstream compatibility', () => {
     expect(sm2.doVerifySignature(digest, signature, publicKey, { hash: false })).toBe(true)
     const legacy = sm2.doSignature(message, privateKey, { hash: false })
     expect(sm2.doVerifySignature(message, legacy, publicKey, { hash: false })).toBe(true)
-    expect(sm2.doVerifySignature(message, legacy, publicKey)).toBe(true)
+    expect(sm2.doVerifySignature(message, legacy, publicKey)).toBe(false)
   })
 })

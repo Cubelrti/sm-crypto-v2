@@ -28,6 +28,17 @@ For WebAssembly-supported platform, see [sm-crypto-wasm](https://github.com/Cube
 npm install --save sm-crypto-v2
 ```
 
+## 2.0 迁移
+
+| 行为 | 1.16.0 兼容版本 | 2.0.0 |
+| --- | --- | --- |
+| SM2 签名与验签的默认杂凑 | 默认关闭；原始消息应显式使用 `hash: true` | 默认开启；旧协议与预计算摘要显式使用 `hash: false` |
+| CBC/GCM 省略 IV | 保留已弃用的全零 IV，仍有重用风险 | 抛出错误，必须显式传入 IV |
+| GCM 数组加密输出 | 仅 `outputTag: true` 返回 `{ output, tag }` | 始终返回 `{ output, tag }` |
+| GCM 解密认证标签 | 必填且校验 | 必填且校验 |
+
+需要保留上游 sm-crypto 默认行为的用户可安装 `sm-crypto-v2@1`（1.16.0）。两个版本均包含 GCM 标签认证、密钥检查与计数器修复；1.x 的默认 SM2 不杂凑和隐式 IV 风险仅在 2.0 中通过更改默认行为处理。未指定 SM4 mode 时仍使用 ECB。
+
 ## sm2
 
 ### 获取密钥对
@@ -72,23 +83,23 @@ decryptData = sm2.doDecrypt(encryptData, privateKey, cipherMode, {output: 'array
 
 ### 签名验签
 
-为保持与上游 sm-crypto 的接口兼容，签名和验签的 `hash` 默认值保持不变：省略或传入 `false` 时，不对输入做杂凑。
+2.0 默认使用标准 SM2 签名流程，计算 `e = SM3(ZA || message)`，其中 ZA 包含用户身份和公钥。`hash: true` 可省略，默认 userId 为 `1234567812345678`。
 
-对原始消息进行标准 SM2 签名和验签时，双方都应显式传入 `{ hash: true }`，计算 `e = SM3(ZA || message)`，其中 ZA 包含用户身份和公钥，默认 userId 为 `1234567812345678`。默认不杂凑的接口仅适用于预计算摘要或兼容既有协议，不能为任意原始消息提供标准 SM2 签名的安全保证。输入已计算好的 `SM3(ZA || message)` 摘要时，应以字节数组传入（字符串始终按 UTF-8 处理）。
+兼容 1.x 未杂凑签名或传入预计算的 `SM3(ZA || message)` 摘要时，签名和验签均须显式传入 `{ hash: false }`。摘要应以字节数组传入（字符串始终按 UTF-8 处理）。不要将 `hash: false` 用于新的任意原始消息签名。
 
 ```js
 import { sm2 } from 'sm-crypto-v2'
-// 兼容上游的低层接口：默认不做杂凑，msg 应为预计算摘要
+// 标准签名 + 生成椭圆曲线点
 let sigValueHex = sm2.doSignature(msg, privateKey) // 签名
 let verifyResult = sm2.doVerifySignature(msg, sigValueHex, publicKey) // 验签结果
 
-// 不做杂凑，使用预计算点
+// 标准签名，使用预计算点
 let sigValueHex2 = sm2.doSignature(msg, privateKey, {
     pointPool: [sm2.getPoint(), sm2.getPoint(), sm2.getPoint(), sm2.getPoint()], // 传入事先已生成好的椭圆曲线点，可加快签名速度
 }) // 签名
 let verifyResult2 = sm2.doVerifySignature(msg, sigValueHex2, publicKey) // 验签结果
 
-// 不做杂凑 + der编解码
+// 标准签名 + der编解码
 let sigValueHex3 = sm2.doSignature(msg, privateKey, {
     der: true,
 }) // 签名
@@ -96,7 +107,7 @@ let verifyResult3 = sm2.doVerifySignature(msg, sigValueHex3, publicKey, {
     der: true,
 }) // 验签结果
 
-// 对原始消息使用标准 SM2 签名：签名和验签均显式开启 sm3 杂凑
+// 显式开启 sm3 杂凑，与 2.0 默认行为一致
 let sigValueHex4 = sm2.doSignature(msg, privateKey, {
     hash: true,
 }) // 签名

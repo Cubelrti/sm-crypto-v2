@@ -2,15 +2,32 @@
 
 All notable changes to this project will be documented in this file. See [standard-version](https://github.com/conventional-changelog/standard-version) for commit guidelines.
 
-## Unreleased
+## [2.0.0](https://github.com/Cubelrti/sm-crypto-v2/compare/v1.16.0...v2.0.0) (2026-10-27)
 
-### Security fixes and compatibility changes
+### Breaking changes
 
-* Require an explicit IV for SM4-CBC and SM4-GCM instead of silently using an all-zero IV. Callers must use fresh unpredictable CBC IVs and unique GCM nonces per key, and preserve them for decryption.
-* Require and validate a full 16-byte authentication tag before SM4-GCM decryption returns plaintext. Fixes [#29](https://github.com/Cubelrti/sm-crypto-v2/issues/29).
-* Validate GCM key length and reject malformed hexadecimal parameters. Always return `{ output, tag }` from GCM encryption, including array output; `outputTag` is deprecated.
+* SM2 signing and verification now compute `SM3(ZA || message)` by default. The function names and parameters remain the same. Pass `hash: false` explicitly when signing precomputed digests or interoperating with the 1.x no-hash default. Old signatures created with `hash: true` continue to work with the new default.
+* CBC/GCM encryption and decryption require an explicit IV. The implicit all-zero IV has been removed. Callers must generate, preserve and transmit fresh unpredictable CBC IVs or unique GCM nonces per key.
+* GCM encryption always returns `{ output, tag }`, including array output. `outputTag` is deprecated and no longer changes the output shape; the tag is required in `GCMResult`.
+
+### Shared security fixes
+
+* Include the 1.16.0 GCM authentication, key/hex validation and inc32 counter fixes. Missing, malformed or mismatched GCM tags cause decryption to fail before plaintext is returned. Fixes [#29](https://github.com/Cubelrti/sm-crypto-v2/issues/29), already known before the follow-up white-hat report.
+* Add standard SM2 signature vectors, legacy-interoperability tests, and SM4 authentication and counter-wrap regressions.
+
+## [1.16.0](https://github.com/Cubelrti/sm-crypto-v2/compare/v1.15.1...v1.16.0) (2026-10-27)
+
+### Security fixes
+
+* Require and validate a full 16-byte authentication tag before SM4-GCM decryption returns plaintext. Fixes [#29](https://github.com/Cubelrti/sm-crypto-v2/issues/29), already reported before the follow-up white-hat report.
+* Validate GCM key length and reject malformed hexadecimal parameters.
 * Use GCM's standard 32-bit counter increment, including when it wraps with non-96-bit IVs.
-* Preserve SM2's existing default behavior and facade for compatibility with upstream sm-crypto. Document that standard SM2 signatures over raw messages require explicit `hash: true` on both signing and verification; the default does not apply SM3 hashing. Add standard-vector and compatibility regressions.
+
+### Compatibility and deprecations
+
+* Preserve SM2's upstream-compatible no-hash default. Standard SM2 signatures over raw messages require `hash: true` for both signing and verification.
+* Preserve GCM array output: `outputTag: true` returns `{ output, tag }`; otherwise array output remains a `Uint8Array`. Correct the array-output TypeScript overloads to describe this existing behavior.
+* Deprecate the implicit all-zero CBC/GCM IV. The 1.x fallback remains for compatibility and does not resolve the implicit-IV reuse finding. Always pass a fresh unpredictable 16-byte CBC IV or a unique GCM nonce per key. Version 2.0 requires an explicit IV.
 
 ### [1.15.1](https://github.com/Cubelrti/sm-crypto-v2/compare/v1.15.0...v1.15.1) (2025-12-10)
 

@@ -133,16 +133,16 @@ export interface SignaturePoint {
 }
 
 /**
- * 签名：兼容上游，默认不做杂凑。对原始消息使用标准 SM2 签名时须传入 hash: true。
+ * 签名：默认计算 SM3(ZA || message)；hash: false 用于预计算摘要或兼容旧版。
  */
 export function doSignature(msg: Uint8Array | string, privateKey: string, options: {
   pointPool?: SignaturePoint[], der?: boolean, hash?: boolean, publicKey?: string, userId?: string
 } = {}) {
   let {
-    pointPool, der, hash, publicKey, userId
+    pointPool, der, hash = true, publicKey, userId
   } = options
   let hashHex = typeof msg === 'string' ? utf8ToHex(msg) : arrayToHex(Array.from(msg))
-  if (hash) {
+  if (hash !== false) {
     // sm3杂凑
     publicKey = publicKey || getPublicKeyFromPrivateKey(privateKey)
     hashHex = getHash(hashHex, publicKey, userId)
@@ -178,17 +178,17 @@ export function doSignature(msg: Uint8Array | string, privateKey: string, option
 }
 
 /**
- * 验签：兼容上游，默认不做杂凑。对原始消息使用标准 SM2 验签时须传入 hash: true。
+ * 验签：默认计算 SM3(ZA || message)；hash: false 用于预计算摘要或兼容旧版。
  */
 export function doVerifySignature(msg: string | Uint8Array, signHex: string, publicKey: string | ProjPointType<bigint>, options: { der?: boolean, hash?: boolean, userId?: string } = {}) {
   let hashHex: string
   const {
-    hash,
+    hash = true,
     der,
     userId,
   } = options
   const publicKeyHex = typeof publicKey === 'string' ? publicKey : publicKey.toHex(false)
-  if (hash) {
+  if (hash !== false) {
     // sm3杂凑
     hashHex = getHash(typeof msg === 'string' ? utf8ToHex(msg) : msg, publicKeyHex, userId)
   } else {
