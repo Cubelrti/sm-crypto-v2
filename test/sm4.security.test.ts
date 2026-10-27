@@ -12,10 +12,18 @@ const tag = '83de3541e4c2b58177e065a9bf7b62ec'
 
 describe('SM4 security requirements', () => {
   for (const mode of ['cbc', 'gcm'] as const) {
-    it(`${mode} requires an explicit IV for encryption and decryption`, () => {
-      expect(() => sm4.encrypt('message', key, { mode })).toThrow('iv is required')
-      expect(() => sm4.decrypt(ciphertext, key, { mode, tag })).toThrow('iv is required')
-      expect(() => sm4.encrypt('message', key, { mode, iv: undefined })).toThrow('iv is required')
+    it(`${mode} preserves the deprecated implicit zero IV in 1.x`, () => {
+      const plaintext = 'message'
+      const implicit = sm4.encrypt(plaintext, key, { mode })
+      const explicit = sm4.encrypt(plaintext, key, { mode, iv: new Uint8Array(16) })
+      expect(implicit).toEqual(explicit)
+      if (mode === 'cbc') {
+        const ciphertext = sm4.encrypt(plaintext, key, { mode })
+        expect(sm4.decrypt(ciphertext, key, { mode })).toBe(plaintext)
+      } else {
+        const result = sm4.encrypt(plaintext, key, { mode })
+        expect(sm4.decrypt(result.output, key, { mode, tag: result.tag })).toBe(plaintext)
+      }
     })
 
     it(`${mode} rejects empty or malformed hexadecimal IVs`, () => {
@@ -67,13 +75,14 @@ describe('SM4 security requirements', () => {
     }
   })
 
-  it('GCM always returns the tag for string and array encryption', () => {
+  it('GCM preserves the 1.x string and array output shapes', () => {
     for (const outputTag of [undefined, false, true]) {
       const options = { mode: 'gcm' as const, iv, associatedData, outputTag }
       expect(sm4.encrypt(hexToArray(plaintext), key, options)).toEqual({ output: ciphertext, tag })
-      expect(sm4.encrypt(hexToArray(plaintext), key, { ...options, output: 'array' })).toEqual({
-        output: hexToArray(ciphertext), tag: hexToArray(tag),
-      })
+      const arrayResult = sm4.encrypt(hexToArray(plaintext), key, { ...options, output: 'array' })
+      expect(arrayResult).toEqual(outputTag
+        ? { output: hexToArray(ciphertext), tag: hexToArray(tag) }
+        : hexToArray(ciphertext))
     }
   })
 

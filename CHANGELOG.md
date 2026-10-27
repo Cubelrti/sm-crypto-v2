@@ -2,15 +2,19 @@
 
 All notable changes to this project will be documented in this file. See [standard-version](https://github.com/conventional-changelog/standard-version) for commit guidelines.
 
-## Unreleased
+## [1.16.0](https://github.com/Cubelrti/sm-crypto-v2/compare/v1.15.1...v1.16.0) (2026-10-27)
 
-### Security fixes and compatibility changes
+### Security fixes
 
-* Require an explicit IV for SM4-CBC and SM4-GCM instead of silently using an all-zero IV. Callers must use fresh unpredictable CBC IVs and unique GCM nonces per key, and preserve them for decryption.
-* Require and validate a full 16-byte authentication tag before SM4-GCM decryption returns plaintext. Fixes [#29](https://github.com/Cubelrti/sm-crypto-v2/issues/29).
-* Validate GCM key length and reject malformed hexadecimal parameters. Always return `{ output, tag }` from GCM encryption, including array output; `outputTag` is deprecated.
+* Require and validate a full 16-byte authentication tag before SM4-GCM decryption returns plaintext. Fixes [#29](https://github.com/Cubelrti/sm-crypto-v2/issues/29), already reported before the follow-up white-hat report.
+* Validate GCM key length and reject malformed hexadecimal parameters.
 * Use GCM's standard 32-bit counter increment, including when it wraps with non-96-bit IVs.
-* Preserve SM2's existing default behavior and facade for compatibility with upstream sm-crypto. Document that standard SM2 signatures over raw messages require explicit `hash: true` on both signing and verification; the default does not apply SM3 hashing. Add standard-vector and compatibility regressions.
+
+### Compatibility and deprecations
+
+* Preserve SM2's upstream-compatible no-hash default. Standard SM2 signatures over raw messages require `hash: true` for both signing and verification.
+* Preserve GCM array output: `outputTag: true` returns `{ output, tag }`; otherwise array output remains a `Uint8Array`. Correct the array-output TypeScript overloads to describe this existing behavior.
+* Deprecate the implicit all-zero CBC/GCM IV. The 1.x fallback remains for compatibility and does not resolve the implicit-IV reuse finding. Always pass a fresh unpredictable 16-byte CBC IV or a unique GCM nonce per key. Version 2.0 requires an explicit IV.
 
 ### [1.15.1](https://github.com/Cubelrti/sm-crypto-v2/compare/v1.15.0...v1.15.1) (2025-12-10)
 

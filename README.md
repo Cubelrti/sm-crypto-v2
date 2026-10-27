@@ -28,6 +28,10 @@ For WebAssembly-supported platform, see [sm-crypto-wasm](https://github.com/Cube
 npm install --save sm-crypto-v2
 ```
 
+## 版本与安全迁移
+
+1.16.0 为兼容现有 sm-crypto 接口的维护版本，修复 GCM 缺失标签认证和计数器问题。2.0.0 将默认启用 SM2 杂凑、强制 CBC/GCM 显式 IV，并统一 GCM 加密的标签输出。依赖 1.x 默认行为的用户可使用 `sm-crypto-v2@1`，同时按本文要求显式传入 `hash: true`、安全的 IV 和 GCM 标签。
+
 ## sm2
 
 ### 获取密钥对
@@ -227,9 +231,9 @@ const derivedKey = hkdf(ikm, salt, info, length) // 返回 Uint8Array
 
 ## sm4
 
-CBC/GCM 加密和解密均必须显式传入 `iv`，不再使用默认全零 IV。CBC 的 IV 必须为 16 字节，每次加密都应使用密码学安全随机数生成新的不可预测 IV；GCM 推荐使用 12 字节 nonce，同一密钥下绝不能重复。调用方负责生成、保存并与密文一起传输 IV/nonce；解密时传入加密时使用的值。
+1.16.0 为兼容版本：CBC/GCM 省略 `iv` 时仍使用全零 IV，此行为已弃用，并将在 2.0 中移除。该兼容行为没有修复隐式 IV 重用问题，请始终显式传入 `iv`。CBC 的 IV 必须为 16 字节，每次加密都应使用密码学安全随机数生成新的不可预测 IV；GCM 推荐使用 12 字节 nonce，同一密钥下绝不能重复。调用方负责生成、保存并与密文一起传输 IV/nonce；解密时传入加密时使用的值。
 
-GCM 解密必须传入完整的 16 字节 `tag`，认证通过后才返回明文。GCM 加密始终返回 `{ output, tag }`，包括 `output: 'array'`，`outputTag` 已弃用且不再影响输出。key、iv、tag 等十六进制参数必须为合法的偶数长度十六进制字符串。未指定 mode 时仍使用 ECB。
+GCM 解密必须传入完整的 16 字节 `tag`，认证通过后才返回明文。GCM 字符串加密返回 `{ output, tag }`；使用 `output: 'array'` 时，须同时设置 `outputTag: true` 才返回 `{ output, tag }`，否则保持返回 `Uint8Array`。key、iv、tag 等十六进制参数必须为合法的偶数长度十六进制字符串。未指定 mode 时仍使用 ECB。
 
 ### 加密
 
@@ -247,11 +251,12 @@ let encryptData = sm4.encrypt(msg, key, {mode: 'cbc', iv: cbcIv}) // 保存 cbcI
 const iv = crypto.getRandomValues(new Uint8Array(12)) // 每次 GCM 加密重新生成，不能在同一密钥下重复
 const associatedData = new Uint8Array(0) // 可选的附加认证数据，加解密时须一致
 const gcmResult = sm4.encrypt(msg, key, {
-    mode: 'gcm', // gcm 模式，必填 iv, 可选 aad
+    mode: 'gcm', // gcm 模式，请显式传入 iv，可选 aad
     iv,
     associatedData,
     output: 'string',
-}) // 输出格式 { output: T; tag: T; } T 为 string/Uint8Array，保存 iv、output 和 tag
+    outputTag: true, // 数组输出时也请设为 true，以保存认证标签
+}) // 输出格式 { output: T; tag?: T; } T 为 string/Uint8Array，保存 iv、output 和 tag
 
 ```
 

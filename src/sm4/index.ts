@@ -188,11 +188,11 @@ function sms4KeyExt(key: Uint8Array, roundKey: Uint32Array, cryptFlag: 0 | 1) {
 export interface SM4Options {
   padding?: 'pkcs#7' | 'pkcs#5' | 'none' | null
   mode?: 'cbc' | 'ecb' | 'gcm'
-  /** Required for CBC/GCM. Use a fresh unpredictable CBC IV or a unique GCM nonce per key. */
+  /** Always supply a fresh CBC IV or unique GCM nonce. The 1.x implicit zero IV is deprecated. */
   iv?: Uint8Array | string
   output?: 'string' | 'array'
   associatedData?: Uint8Array | string
-  /** @deprecated GCM encryption always returns its authentication tag. */
+  /** Set true to include the GCM tag with array output. */
   outputTag?: boolean
   /** Required for GCM decryption; exactly 16 bytes. */
   tag?: Uint8Array | string
@@ -369,9 +369,10 @@ export function sm4(inArray: Uint8Array | string, key: Uint8Array | string, cryp
   let {
     padding = 'pkcs#7',
     mode,
-    iv,
+    iv = new Uint8Array(16),
     output,
     associatedData,
+    outputTag,
     tag
   } = options
   
@@ -414,10 +415,9 @@ export function sm4(inArray: Uint8Array | string, key: Uint8Array | string, cryp
     
     const result = sm4Gcm(inputArray, keyArray, ivArray, aadArray, cryptFlag, tagArray);
     if (cryptFlag !== DECRYPT) {
-      // Keep the tag with the ciphertext for both output formats.
-      return output === 'array'
-        ? { output: result.output, tag: result.tag! }
-        : { output: bytesToHex(result.output), tag: bytesToHex(result.tag!) };
+      // Preserve the 1.x array facade; callers request the tag with outputTag.
+      if (output === 'array') return outputTag ? result : result.output;
+      return { output: bytesToHex(result.output), tag: bytesToHex(result.tag!) };
     }
     return output === 'array' ? result.output : arrayToUtf8(result.output);
   }
@@ -518,14 +518,24 @@ export function sm4(inArray: Uint8Array | string, key: Uint8Array | string, cryp
 
 export interface GCMResult<T = Uint8Array | string> {
   output: T;
-  tag: T;
+  tag?: T;
 }
 
 export function encrypt(
   inArray: Uint8Array | string,
   key: Uint8Array | string,
-  options: { mode: 'gcm', output: 'array' } & SM4Options
+  options: { mode: 'gcm', output: 'array', outputTag: true } & SM4Options
 ): GCMResult<Uint8Array>
+export function encrypt(
+  inArray: Uint8Array | string,
+  key: Uint8Array | string,
+  options: { mode: 'gcm', output: 'array', outputTag?: false } & SM4Options
+): Uint8Array
+export function encrypt(
+  inArray: Uint8Array | string,
+  key: Uint8Array | string,
+  options: { mode: 'gcm', output: 'array' } & SM4Options
+): Uint8Array | GCMResult<Uint8Array>
 export function encrypt(
   inArray: Uint8Array | string,
   key: Uint8Array | string,
