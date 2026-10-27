@@ -3,7 +3,7 @@ import { rotl } from '../sm2/sm3'
 import { arrayToHex, arrayToUtf8, hexToArray } from '../sm2/utils'
 import { utf8ToArray } from '../sm3'
 import { ghash } from '@noble/ciphers/_polyval'
-import { createView, setBigUint64 } from '@noble/ciphers/utils'
+import { createView, hexToBytes, setBigUint64 } from '@noble/ciphers/utils'
 /* eslint-disable no-bitwise, no-mixed-operators, complexity */
 const DECRYPT = 0
 const ROUND = 32
@@ -188,23 +188,28 @@ function sms4KeyExt(key: Uint8Array, roundKey: Uint32Array, cryptFlag: 0 | 1) {
 export interface SM4Options {
   padding?: 'pkcs#7' | 'pkcs#5' | 'none' | null
   mode?: 'cbc' | 'ecb' | 'gcm'
+  /** Required for CBC/GCM. Use a fresh unpredictable CBC IV or a unique GCM nonce per key. */
   iv?: Uint8Array | string
   output?: 'string' | 'array'
   associatedData?: Uint8Array | string
+  /** @deprecated GCM encryption always returns its authentication tag. */
   outputTag?: boolean
+  /** Required for GCM decryption; exactly 16 bytes. */
   tag?: Uint8Array | string
 }
 
-// Helper function to convert data to Uint8Array
-function ensureUint8Array(data: Uint8Array | string, isHex = false): Uint8Array {
-  if (typeof data === 'string') {
-    return isHex ? hexToArray(data) : utf8ToArray(data);
+// Cryptographic parameters must not silently normalize malformed hex strings.
+function decodeHex(data: string, name: string): Uint8Array {
+  try {
+    return hexToBytes(data);
+  } catch {
+    throw new Error(`${name} is invalid`);
   }
-  return Uint8Array.from(data);
 }
 
 function incrementCounter(counter: Uint8Array): void {
-  for (let i = counter.length - 1; i >= 0; i--) {
+  // GCM uses inc32: carry must not escape the low 32 bits.
+  for (let i = counter.length - 1; i >= counter.length - 4; i--) {
     counter[i]++;
     if (counter[i] !== 0) break;
   }
@@ -219,7 +224,9 @@ function sm4Gcm(
   cryptFlag: 0 | 1,
   tagArray?: Uint8Array
 ): { output: Uint8Array, tag?: Uint8Array } {
-  const tagLength = 16;
+  if (cryptFlag === DECRYPT && (!tagArray || tagArray.length !== 16)) {
+    throw new Error('GCM decryption requires a 16-byte authentication tag');
+  }
   
   function deriveKeys() {
     // Generate round keys
@@ -289,10 +296,10 @@ function sm4Gcm(
   }
   
   // Start the actual GCM processing
-  const { roundKey, h, j0, counter, tagMask } = deriveKeys();
+  const { roundKey, h, counter, tagMask } = deriveKeys();
   
   // For decryption, verify tag first
-  if (cryptFlag === DECRYPT && tagArray) {
+  if (cryptFlag === DECRYPT) {
     const calculatedTag = computeTag(h, inArray);
     
     // XOR with tag mask
@@ -303,7 +310,7 @@ function sm4Gcm(
     // Constant time comparison to prevent timing attacks
     let tagMatch = 0;
     for (let i = 0; i < 16; i++) {
-      tagMatch |= calculatedTag[i] ^ tagArray[i];
+      tagMatch |= calculatedTag[i] ^ tagArray![i];
     }
     
     if (tagMatch !== 0) {
@@ -362,19 +369,30 @@ export function sm4(inArray: Uint8Array | string, key: Uint8Array | string, cryp
   let {
     padding = 'pkcs#7',
     mode,
-    iv = new Uint8Array(16),
+    iv,
     output,
     associatedData,
-    outputTag,
     tag
   } = options
   
+  // All SM4 modes use a 128-bit key, including GCM.
+  if (typeof key === 'string') key = decodeHex(key, 'key')
+  if (key.length !== BLOCK) throw new Error('key is invalid')
+
+  if (mode === 'cbc' || mode === 'gcm') {
+    if (iv == null) throw new Error(`iv is required for ${mode} mode`)
+    if (typeof iv === 'string') iv = decodeHex(iv, 'iv')
+    if (mode === 'cbc' ? iv.length !== BLOCK : iv.length === 0) {
+      throw new Error('iv is invalid')
+    }
+  }
+
   // Handle GCM mode
   if (mode === 'gcm') {
-    const keyArray = typeof key === 'string' ? hexToArray(key) : Uint8Array.from(key);
-    const ivArray = typeof iv === 'string' ? hexToArray(iv) : Uint8Array.from(iv);
+    const keyArray = Uint8Array.from(key);
+    const ivArray = Uint8Array.from(iv as Uint8Array);
     const aadArray = associatedData 
-      ? (typeof associatedData === 'string' ? hexToArray(associatedData) : Uint8Array.from(associatedData))
+      ? (typeof associatedData === 'string' ? decodeHex(associatedData, 'associatedData') : Uint8Array.from(associatedData))
       : new Uint8Array(0);
     
     let inputArray: Uint8Array;
@@ -384,57 +402,24 @@ export function sm4(inArray: Uint8Array | string, key: Uint8Array | string, cryp
         inputArray = utf8ToArray(inArray);
       } else {
         // For decryption, input is hex string
-        inputArray = hexToArray(inArray);
+        inputArray = decodeHex(inArray, 'ciphertext');
       }
     } else {
       inputArray = Uint8Array.from(inArray);
     }
     
-    const tagArray = tag 
-      ? (typeof tag === 'string' ? hexToArray(tag) : Uint8Array.from(tag))
-      : undefined;
+    const tagArray = tag == null
+      ? undefined
+      : (typeof tag === 'string' ? decodeHex(tag, 'tag') : Uint8Array.from(tag));
     
     const result = sm4Gcm(inputArray, keyArray, ivArray, aadArray, cryptFlag, tagArray);
-    // gcm tag is 
-    if (output === 'array') {
-      if (outputTag && cryptFlag !== DECRYPT) {
-        return result
-      }
-      return result.output;
-    } else {
-      if (outputTag && cryptFlag !== DECRYPT) {
-        return { 
-          output: bytesToHex(result.output), 
-          tag: result.tag ? bytesToHex(result.tag) : undefined 
-        };
-      }
-      
-      if (cryptFlag !== DECRYPT) {
-        return {
-          output: bytesToHex(result.output),
-          tag: result.tag ? bytesToHex(result.tag) : undefined
-        };
-      } else {
-        return arrayToUtf8(result.output);
-      }
+    if (cryptFlag !== DECRYPT) {
+      // Keep the tag with the ciphertext for both output formats.
+      return output === 'array'
+        ? { output: result.output, tag: result.tag! }
+        : { output: bytesToHex(result.output), tag: bytesToHex(result.tag!) };
     }
-  }
-
-  // Existing code for non-GCM modes
-  if (mode === 'cbc') {
-    // CBC 模式，默认走 ECB 模式
-    if (typeof iv === 'string') iv = hexToArray(iv)
-    if (iv.length !== (128 / 8)) {
-      // iv 不是 128 比特
-      throw new Error('iv is invalid')
-    }
-  }
-
-  // 检查 key
-  if (typeof key === 'string') key = hexToArray(key)
-  if (key.length !== (128 / 8)) {
-    // key 不是 128 比特
-    throw new Error('key is invalid')
+    return output === 'array' ? result.output : arrayToUtf8(result.output);
   }
 
   // 检查输入
@@ -533,7 +518,7 @@ export function sm4(inArray: Uint8Array | string, key: Uint8Array | string, cryp
 
 export interface GCMResult<T = Uint8Array | string> {
   output: T;
-  tag?: T;
+  tag: T;
 }
 
 export function encrypt(

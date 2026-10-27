@@ -72,21 +72,23 @@ decryptData = sm2.doDecrypt(encryptData, privateKey, cipherMode, {output: 'array
 
 ### 签名验签
 
-> ps：理论上来说，只做纯签名是最快的。
+为保持与上游 sm-crypto 的接口兼容，签名和验签的 `hash` 默认值保持不变：省略或传入 `false` 时，不对输入做杂凑。
+
+对原始消息进行标准 SM2 签名和验签时，双方都应显式传入 `{ hash: true }`，计算 `e = SM3(ZA || message)`，其中 ZA 包含用户身份和公钥，默认 userId 为 `1234567812345678`。默认不杂凑的接口仅适用于预计算摘要或兼容既有协议，不能为任意原始消息提供标准 SM2 签名的安全保证。输入已计算好的 `SM3(ZA || message)` 摘要时，应以字节数组传入（字符串始终按 UTF-8 处理）。
 
 ```js
 import { sm2 } from 'sm-crypto-v2'
-// 纯签名 + 生成椭圆曲线点
+// 兼容上游的低层接口：默认不做杂凑，msg 应为预计算摘要
 let sigValueHex = sm2.doSignature(msg, privateKey) // 签名
 let verifyResult = sm2.doVerifySignature(msg, sigValueHex, publicKey) // 验签结果
 
-// 纯签名
+// 不做杂凑，使用预计算点
 let sigValueHex2 = sm2.doSignature(msg, privateKey, {
     pointPool: [sm2.getPoint(), sm2.getPoint(), sm2.getPoint(), sm2.getPoint()], // 传入事先已生成好的椭圆曲线点，可加快签名速度
 }) // 签名
 let verifyResult2 = sm2.doVerifySignature(msg, sigValueHex2, publicKey) // 验签结果
 
-// 纯签名 + 生成椭圆曲线点 + der编解码
+// 不做杂凑 + der编解码
 let sigValueHex3 = sm2.doSignature(msg, privateKey, {
     der: true,
 }) // 签名
@@ -94,7 +96,7 @@ let verifyResult3 = sm2.doVerifySignature(msg, sigValueHex3, publicKey, {
     der: true,
 }) // 验签结果
 
-// 纯签名 + 生成椭圆曲线点 + sm3杂凑
+// 对原始消息使用标准 SM2 签名：签名和验签均显式开启 sm3 杂凑
 let sigValueHex4 = sm2.doSignature(msg, privateKey, {
     hash: true,
 }) // 签名
@@ -102,17 +104,17 @@ let verifyResult4 = sm2.doVerifySignature(msg, sigValueHex4, publicKey, {
     hash: true,
 }) // 验签结果
 
-// 纯签名 + 生成椭圆曲线点 + sm3杂凑（不做公钥推导）
+// 标准签名，传入公钥以省去公钥推导
 let sigValueHex5 = sm2.doSignature(msg, privateKey, {
     hash: true,
-    publicKey, // 传入公钥的话，可以去掉sm3杂凑中推导公钥的过程，速度会比纯签名 + 生成椭圆曲线点 + sm3杂凑快
+    publicKey, // 必须与 privateKey 对应
 })
 let verifyResult5 = sm2.doVerifySignature(msg, sigValueHex5, publicKey, {
     hash: true,
     publicKey,
 })
 
-// 纯签名 + 生成椭圆曲线点 + sm3杂凑 + 不做公钥推 + 添加 userId（长度小于 8192）
+// 标准签名 + 传入公钥 + 自定义 userId（UTF-8 编码后长度小于 8192 字节）
 // 默认 userId 值为 1234567812345678
 let sigValueHex6 = sm2.doSignature(msgString, privateKey, {
     hash: true,
@@ -225,6 +227,10 @@ const derivedKey = hkdf(ikm, salt, info, length) // 返回 Uint8Array
 
 ## sm4
 
+CBC/GCM 加密和解密均必须显式传入 `iv`，不再使用默认全零 IV。CBC 的 IV 必须为 16 字节，每次加密都应使用密码学安全随机数生成新的不可预测 IV；GCM 推荐使用 12 字节 nonce，同一密钥下绝不能重复。调用方负责生成、保存并与密文一起传输 IV/nonce；解密时传入加密时使用的值。
+
+GCM 解密必须传入完整的 16 字节 `tag`，认证通过后才返回明文。GCM 加密始终返回 `{ output, tag }`，包括 `output: 'array'`，`outputTag` 已弃用且不再影响输出。key、iv、tag 等十六进制参数必须为合法的偶数长度十六进制字符串。未指定 mode 时仍使用 ECB。
+
 ### 加密
 
 ```js
@@ -235,14 +241,17 @@ const key = '0123456789abcdeffedcba9876543210' // 可以为 16 进制串或字�
 let encryptData = sm4.encrypt(msg, key) // 加密，默认输出 16 进制字符串，默认使用 pkcs#7 填充（传 pkcs#5 也会走 pkcs#7 填充）
 let encryptData = sm4.encrypt(msg, key, {padding: 'none'}) // 加密，不使用 padding
 let encryptData = sm4.encrypt(msg, key, {padding: 'none', output: 'array'}) // 加密，不使用 padding，输出为字节数组
-let encryptData = sm4.encrypt(msg, key, {mode: 'cbc', iv: 'fedcba98765432100123456789abcdef'}) // 加密，cbc 模式
-let encryptData = sm4.encrypt(msg, key, {
+// 以下随机数示例适用于提供 Web Crypto 的环境；其他环境请使用平台的 CSPRNG。
+const cbcIv = crypto.getRandomValues(new Uint8Array(16)) // 每次加密重新生成
+let encryptData = sm4.encrypt(msg, key, {mode: 'cbc', iv: cbcIv}) // 保存 cbcIv 用于解密
+const iv = crypto.getRandomValues(new Uint8Array(12)) // 每次 GCM 加密重新生成，不能在同一密钥下重复
+const associatedData = new Uint8Array(0) // 可选的附加认证数据，加解密时须一致
+const gcmResult = sm4.encrypt(msg, key, {
     mode: 'gcm', // gcm 模式，必填 iv, 可选 aad
     iv,
     associatedData,
     output: 'string',
-    outputTag: true, // 输出 aead tag，如果为 false 则不输出
-}) // 输出格式 { output: T; tag?: T; } T 为 string/Uint8Array
+}) // 输出格式 { output: T; tag: T; } T 为 string/Uint8Array，保存 iv、output 和 tag
 
 ```
 
@@ -256,12 +265,12 @@ const key = '0123456789abcdeffedcba9876543210' // 可以为 16 进制串或字�
 let decryptData = sm4.decrypt(encryptData, key) // 解密，默认输出 utf8 字符串，默认使用 pkcs#7 填充（传 pkcs#5 也会走 pkcs#7 填充）
 let decryptData = sm4.decrypt(encryptData, key, {padding: 'none'}) // 解密，不使用 padding
 let decryptData = sm4.decrypt(encryptData, key, {padding: 'none', output: 'array'}) // 解密，不使用 padding，输出为字节数组
-let decryptData = sm4.decrypt(encryptData, key, {mode: 'cbc', iv: 'fedcba98765432100123456789abcdef'}) // 解密，cbc 模式
-let decryptData = sm4.decrypt(encryptData, key, {
+let decryptData = sm4.decrypt(encryptData, key, {mode: 'cbc', iv: cbcIv}) // 使用加密时保存的 CBC IV
+let decryptData = sm4.decrypt(gcmResult.output, key, { // gcmResult 为 GCM 加密返回的 { output, tag }
     mode: 'gcm', // gcm 模式必填 iv tag, 可选 aad
     iv,
     associatedData,
-    tag: expectedAuthTag,
+    tag: gcmResult.tag, // 必填，加密时保存的完整 16 字节认证标签
     output: 'array'
 }) // 输出格式 string/Uint8Array
 ```

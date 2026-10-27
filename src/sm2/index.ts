@@ -133,7 +133,7 @@ export interface SignaturePoint {
 }
 
 /**
- * 签名
+ * 签名：兼容上游，默认不做杂凑。对原始消息使用标准 SM2 签名时须传入 hash: true。
  */
 export function doSignature(msg: Uint8Array | string, privateKey: string, options: {
   pointPool?: SignaturePoint[], der?: boolean, hash?: boolean, publicKey?: string, userId?: string
@@ -178,7 +178,7 @@ export function doSignature(msg: Uint8Array | string, privateKey: string, option
 }
 
 /**
- * 验签
+ * 验签：兼容上游，默认不做杂凑。对原始消息使用标准 SM2 验签时须传入 hash: true。
  */
 export function doVerifySignature(msg: string | Uint8Array, signHex: string, publicKey: string | ProjPointType<bigint>, options: { der?: boolean, hash?: boolean, userId?: string } = {}) {
   let hashHex: string

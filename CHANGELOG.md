@@ -2,6 +2,16 @@
 
 All notable changes to this project will be documented in this file. See [standard-version](https://github.com/conventional-changelog/standard-version) for commit guidelines.
 
+## Unreleased
+
+### Security fixes and compatibility changes
+
+* Require an explicit IV for SM4-CBC and SM4-GCM instead of silently using an all-zero IV. Callers must use fresh unpredictable CBC IVs and unique GCM nonces per key, and preserve them for decryption.
+* Require and validate a full 16-byte authentication tag before SM4-GCM decryption returns plaintext. Fixes [#29](https://github.com/Cubelrti/sm-crypto-v2/issues/29).
+* Validate GCM key length and reject malformed hexadecimal parameters. Always return `{ output, tag }` from GCM encryption, including array output; `outputTag` is deprecated.
+* Use GCM's standard 32-bit counter increment, including when it wraps with non-96-bit IVs.
+* Preserve SM2's existing default behavior and facade for compatibility with upstream sm-crypto. Document that standard SM2 signatures over raw messages require explicit `hash: true` on both signing and verification; the default does not apply SM3 hashing. Add standard-vector and compatibility regressions.
+
 ### [1.15.1](https://github.com/Cubelrti/sm-crypto-v2/compare/v1.15.0...v1.15.1) (2025-12-10)
 
 
