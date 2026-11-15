@@ -167,26 +167,40 @@ export function encodeEnc(x: bigint, y: bigint, hash: string, cipher: string) {
  * 解析 ASN.1 der，针对 sm2 验签
  */
 export function decodeDer(input: string) {
-  // 结构：
-  // input = | tSeq | lSeq | vSeq |
-  // vSeq = | tR | lR | vR | tS | lS | vS |
-  const start = getStartOfV(input, 0)
+  // Two 256-bit scalars need at most 33 bytes each, including a sign byte.
+  // The INTEGERs and the outer SEQUENCE therefore only use short-form lengths.
+  if (typeof input !== 'string' || input.length > 144 || input.length % 2 !== 0 || /[^0-9a-f]/i.test(input)) {
+    throw new Error('invalid DER: expected an SM2 signature in hexadecimal')
+  }
+  if (!input.startsWith('30') || 4 + 2 * parseInt(input.slice(2, 4), 16) !== input.length) {
+    throw new Error('invalid DER: expected a SEQUENCE spanning the entire signature')
+  }
 
-  const vIndexR = getStartOfV(input, start)
-  const lR = getL(input, start)
-  const vR = input.substring(vIndexR, vIndexR +lR * 2)
+  function readInteger(start: number) {
+    if (input.slice(start, start + 2) !== '02') {
+      throw new Error('invalid DER: expected an INTEGER')
+    }
+    const valueStart = start + 4
+    const length = parseInt(input.slice(start + 2, valueStart), 16)
+    const next = valueStart + length * 2
+    if (!(length >= 1 && length <= 33 && next <= input.length)) {
+      throw new Error('invalid DER: invalid INTEGER length')
+    }
 
-  const nextStart = vIndexR + vR.length
-  const vIndexS = getStartOfV(input, nextStart)
-  const lS = getL(input, nextStart)
-  const vS = input.substring(vIndexS, vIndexS + lS * 2)
+    const first = parseInt(input.slice(valueStart, valueStart + 2), 16)
+    const second = parseInt(input.slice(valueStart + 2, valueStart + 4), 16)
+    if (first >= 0x80 || (first === 0 && length > 1 && second < 0x80)) {
+      throw new Error('invalid DER: expected a minimally encoded non-negative INTEGER')
+    }
+    return { value: utils.hexToNumber(input.slice(valueStart, next)), next }
+  }
 
-  // const r = new BigInteger(vR, 16)
-  // const s = new BigInteger(vS, 16)
-  const r = utils.hexToNumber(vR)
-  const s = utils.hexToNumber(vS)
-
-  return { r, s }
+  const r = readInteger(4)
+  const s = readInteger(r.next)
+  if (s.next !== input.length) {
+    throw new Error('invalid DER: unexpected data after the second INTEGER')
+  }
+  return { r: r.value, s: s.value }
 }
 
 /**

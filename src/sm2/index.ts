@@ -198,9 +198,15 @@ export function doVerifySignature(msg: string | Uint8Array, signHex: string, pub
   let r: bigint;
   let s: bigint;
   if (der) {
-    const decodeDerObj = decodeDer(signHex) // asn.1 der 解码
-    r = decodeDerObj.r
-    s = decodeDerObj.s
+    try {
+      const signature = decodeDer(signHex)
+      r = signature.r
+      s = signature.s
+    } catch {
+      return false
+    }
+    const n = sm2Curve.CURVE.n
+    if (r < ONE || r >= n || s < ONE || s >= n) return false
   } else {
     r = utils.hexToNumber(signHex.substring(0, 64))
     s = utils.hexToNumber(signHex.substring(64))

@@ -1,5 +1,6 @@
 import { sm2 } from '@/index'
 import { hexToArray } from '@/sm2'
+import { encodeDer } from '@/sm2/asn1'
 import { describe, expect, it } from 'vitest'
 
 // GB/T 32918.5-2017, Appendix A.2, example 1.
@@ -40,6 +41,27 @@ describe('SM2 standard defaults and legacy interoperability', () => {
     expect(sm2.doSignature(bytes, privateKey, { pointPool: pointPool(), publicKey: compressed, hash: true })).toBe(signature)
     const der = sm2.doSignature(bytes, privateKey, { pointPool: pointPool(), der: true, hash: true })
     expect(sm2.doVerifySignature(bytes, der, compressed, { der: true, hash: true })).toBe(true)
+  })
+
+  it('rejects alternate DER encodings of a valid signature', () => {
+    const options = { der: true, hash: true } as const
+    const canonical = sm2.doSignature(message, privateKey, { ...options, pointPool: pointPool() })
+    const incrementLength = (hex: string) => (parseInt(hex, 16) + 1).toString(16).padStart(2, '0')
+    const extendedSequence = '30' + incrementLength(canonical.slice(2, 4))
+    const padded = extendedSequence + '02' + incrementLength(canonical.slice(6, 8)) + '00' + canonical.slice(8)
+
+    expect(sm2.doVerifySignature(message, canonical, publicKey, options)).toBe(true)
+    for (const malformed of [padded, canonical + '00', extendedSequence + canonical.slice(4) + '00']) {
+      expect(sm2.doVerifySignature(message, malformed, publicKey, options)).toBe(false)
+    }
+  })
+
+  it('rejects DER signatures with scalars outside the SM2 range', () => {
+    const options = { der: true, hash: true } as const
+    const tooLarge = 1n << 256n
+    for (const invalid of ['3006020100020101', '3006020101020100', encodeDer(tooLarge, 1n), encodeDer(1n, tooLarge)]) {
+      expect(sm2.doVerifySignature(message, invalid, publicKey, options)).toBe(false)
+    }
   })
 
   it('binds default signatures to the message and user identity', () => {
