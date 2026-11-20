@@ -15,7 +15,9 @@ export interface KeyPair {
  * 生成密钥对：publicKey = privateKey * G
  */
 export function generateKeyPairHex(str?: string): KeyPair {
-  const privateKey = str ? utils.numberToBytesBE((mod(BigInt(str), ONE) + ONE), 32) : sm2Curve.utils.randomPrivateKey()
+  const privateKey = str
+    ? utils.numberToBytesBE(mod(BigInt(str), sm2Curve.CURVE.n - ONE) + ONE, 32)
+    : sm2Curve.utils.randomPrivateKey()
   // const random = typeof a === 'string' ? new BigInteger(a, b) :
   //   a ? new BigInteger(a, b!, c!) : new BigInteger(n.bitLength(), rng)
   // const d = random.mod(n.subtract(BigInteger.ONE)).add(BigInteger.ONE) // 随机数

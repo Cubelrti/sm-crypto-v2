@@ -93,6 +93,7 @@ export function doDecrypt(encryptData: string, privateKey: string, cipherMode = 
   if (asn1) {
     const {x, y, cipher, hash} = decodeEnc(encryptData)
     c1 = sm2Curve.ProjectivePoint.fromAffine({ x, y })
+    c1.assertValidity()
     c3 = hash
     c2 = cipher
     if (cipherMode === C1C2C3) {

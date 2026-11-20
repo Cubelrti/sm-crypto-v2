@@ -2,6 +2,16 @@
 
 All notable changes to this project will be documented in this file. See [standard-version](https://github.com/conventional-changelog/standard-version) for commit guidelines.
 
+### [2.0.2](https://github.com/Cubelrti/sm-crypto-v2/compare/v2.0.1...v2.0.2) (2026-11-20)
+
+### Security fixes
+
+* Correct seeded SM2 key generation to reduce the supplied integer modulo `n - 1` before adding one, matching upstream. Previously, every nonempty valid seed produced private key `1`. Keys generated through the affected seeded API must be treated as compromised and replaced; upgrading does not repair existing keys. Unseeded key generation is unaffected.
+* Validate the C1 curve point before ASN.1 SM2 decryption, rejecting the point at infinity and points outside the curve before multiplying by the private key.
+* Add regression tests and rebuild the CJS, ESM, UMD and Mini Program distributions.
+
+Thanks to EZO Labs Security ([@superbot-helper](https://github.com/superbot-helper)) for reporting these issues.
+
 ### [2.0.1](https://github.com/Cubelrti/sm-crypto-v2/compare/v2.0.0...v2.0.1) (2026-11-16)
 
 ### Security fixes
